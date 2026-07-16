@@ -1,0 +1,10 @@
+{
+  "name": "devvault",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "setup": "npm install --prefix Frontend && npm install --prefix Backend",
+    "dev:frontend": "npm run dev --prefix Frontend",
+    "dev:backend": "npm run start:dev --prefix Backend"
+  }
+}
