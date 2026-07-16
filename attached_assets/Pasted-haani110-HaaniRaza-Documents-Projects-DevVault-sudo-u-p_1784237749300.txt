@@ -1,0 +1,40 @@
+haani110@HaaniRaza:~/Documents/Projects/DevVault$ sudo -u postgres psql
+psql (18.4 (Ubuntu 18.4-0ubuntu0.26.04.1))
+Type "help" for help.
+
+postgres=# CREATE DATABASE devvault;
+CREATE USER Haani_110 WITH PASSWORD '1414';
+GRANT ALL PRIVILEGES ON DATABASE devvault TO Haani_110;
+\q
+CREATE DATABASE
+CREATE ROLE
+GRANT
+haani110@HaaniRaza:~/Documents/Projects/DevVault$ nano Backend/.env
+haani110@HaaniRaza:~/Documents/Projects/DevVault$ cd Backend && npx prisma db push
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "devvault", schema "public" at "localhost:5432"
+
+Error: P1000: Authentication failed against database server, the provided database credentials for `Haani_110` are not valid.
+
+Please make sure to provide valid database credentials for the database server at the configured address.
+haani110@HaaniRaza:~/Documents/Projects/DevVault/Backend$ nano Backend/.env
+haani110@HaaniRaza:~/Documents/Projects/DevVault/Backend$ cd
+haani110@HaaniRaza:~$ cd Documents/Projects/DevVault/
+haani110@HaaniRaza:~/Documents/Projects/DevVault$ nano Backend/.env
+haani110@HaaniRaza:~/Documents/Projects/DevVault$ cd Documents/Projects/DevVault/
+bash: cd: Documents/Projects/DevVault/: No such file or directory
+haani110@HaaniRaza:~/Documents/Projects/DevVault$ cd Documents/Projects/DevVault
+bash: cd: Documents/Projects/DevVault: No such file or directory
+haani110@HaaniRaza:~/Documents/Projects/DevVault$ cd Documents/Projects/DevVault/
+bash: cd: Documents/Projects/DevVault/: No such file or directory
+haani110@HaaniRaza:~/Documents/Projects/DevVault$ cd Backend && npx prisma db push
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "devvault", schema "public" at "localhost:5432"
+
+Error: P1000: Authentication failed against database server, the provided database credentials for `Haani_110` are not valid.
+
+Please make sure to provide valid database credentials for the database server at the configured address.
+haani110@HaaniRaza:~/Documents/Projects/DevVault/Backend$ 
+
