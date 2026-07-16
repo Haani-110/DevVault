@@ -1,0 +1,83 @@
+haani110@HaaniRaza:~/Documents/Projects/DevVault$ npm run setup
+# create Backend/.env with DATABASE_URL
+cd Backend && npx prisma db push
+
+> devvault@0.1.0 setup
+> npm install --prefix Frontend && npm install --prefix Backend
+
+
+up to date, audited 472 packages in 3s
+
+191 packages are looking for funding
+  run `npm fund` for details
+
+2 vulnerabilities (1 low, 1 moderate)
+
+To address all issues, run:
+  npm audit fix
+
+Run `npm audit` for details.
+
+> devvault-backend@0.1.0 postinstall
+> prisma generate
+
+Prisma schema loaded from prisma/schema.prisma
+┌─────────────────────────────────────────────────────────┐
+│  Update available 6.19.3 -> 7.8.0                       │
+│                                                         │
+│  This is a major update - please follow the guide at    │
+│  https://pris.ly/d/major-version-upgrade                │
+│                                                         │
+│  Run the following to update                            │
+│    npm i --save-dev prisma@latest                       │
+│    npm i @prisma/client@latest                          │
+└─────────────────────────────────────────────────────────┘
+
+✔ Generated Prisma Client (v6.19.3) to ./node_modules/@prisma/client in 60ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Want to turn off tips and other hints? https://pris.ly/tip-4-nohints
+
+
+up to date, audited 442 packages in 2s
+
+83 packages are looking for funding
+  run `npm fund` for details
+
+2 high severity vulnerabilities
+
+To address all issues, run:
+  npm audit fix
+
+Run `npm audit` for details.
+npm warn allow-scripts 5 packages have install scripts not yet covered by allowScripts:
+npm warn allow-scripts   @prisma/client@6.19.3 (install: (install scripts present))
+npm warn allow-scripts   @prisma/engines@6.19.3 (install: (install scripts present))
+npm warn allow-scripts   @scarf/scarf@1.4.0 (install: (install scripts present))
+npm warn allow-scripts   bcrypt@5.1.1 (install: node-gyp rebuild)
+npm warn allow-scripts   prisma@6.19.3 (install: (install scripts present))
+npm warn allow-scripts
+npm warn allow-scripts Run `npm approve-scripts --allow-scripts-pending` to review, or `npm approve-scripts <pkg>` to allow.
+Prisma schema loaded from prisma/schema.prisma
+Error: Prisma schema validation - (get-config wasm)
+Error code: P1012
+error: Environment variable not found: DATABASE_URL.
+  -->  prisma/schema.prisma:7
+   | 
+ 6 |   provider = "postgresql"
+ 7 |   url      = env("DATABASE_URL")
+   | 
+
+Validation Error Count: 1
+[Context: getConfig]
+
+Prisma CLI Version : 6.19.3
+haani110@HaaniRaza:~/Documents/Projects/DevVault/Backend$ npm run setup
+npm error Missing script: "setup"
+npm error
+npm error To see a list of scripts, run:
+npm error   npm run
+npm error A complete log of this run can be found in: /home/haani110/.npm/_logs/2026-07-16T21_26_14_480Z-debug-0.log
+haani110@HaaniRaza:~/Documents/Projects/DevVault/Backend$ 
+
