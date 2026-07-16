@@ -25,6 +25,6 @@ export const useAuthStore = create<AuthState>()(
       logout: () =>
         set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false }),
     }),
-    { name: 'devvault-auth' }
+    { name: 'devvault-auth', version: 1 }
   )
 );
