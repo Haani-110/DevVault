@@ -1,0 +1,340 @@
+[2:08:26 AM] Starting compilation in watch mode...
+
+src/app.module.ts:1:24 - error TS2307: Cannot find module '@nestjs/common' or its corresponding type declarations.
+
+1 import { Module } from '@nestjs/common';
+                         ~~~~~~~~~~~~~~~~
+
+src/app.module.ts:2:33 - error TS2307: Cannot find module '@nestjs/throttler' or its corresponding type declarations.
+
+2 import { ThrottlerModule } from '@nestjs/throttler';
+                                  ~~~~~~~~~~~~~~~~~~~
+
+src/auth/auth.controller.ts:7:8 - error TS2307: Cannot find module '@nestjs/common' or its corresponding type declarations.
+
+7 } from '@nestjs/common';
+         ~~~~~~~~~~~~~~~~
+
+src/auth/auth.controller.ts:8:39 - error TS2307: Cannot find module '@nestjs/swagger' or its corresponding type declarations.
+
+8 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+                                        ~~~~~~~~~~~~~~~~~
+
+src/auth/auth.module.ts:1:24 - error TS2307: Cannot find module '@nestjs/common' or its corresponding type declarations.
+
+1 import { Module } from '@nestjs/common';
+                         ~~~~~~~~~~~~~~~~
+
+src/auth/auth.module.ts:2:27 - error TS2307: Cannot find module '@nestjs/jwt' or its corresponding type declarations.
+
+2 import { JwtModule } from '@nestjs/jwt';
+                            ~~~~~~~~~~~~~
+
+src/auth/auth.module.ts:3:32 - error TS2307: Cannot find module '@nestjs/passport' or its corresponding type declarations.
+
+3 import { PassportModule } from '@nestjs/passport';
+                                 ~~~~~~~~~~~~~~~~~~
+
+src/auth/auth.service.ts:5:8 - error TS2307: Cannot find module '@nestjs/common' or its corresponding type declarations.
+
+5 } from '@nestjs/common';
+         ~~~~~~~~~~~~~~~~
+
+src/auth/auth.service.ts:6:28 - error TS2307: Cannot find module '@nestjs/jwt' or its corresponding type declarations.
+
+6 import { JwtService } from '@nestjs/jwt';
+                             ~~~~~~~~~~~~~
+
+src/auth/auth.service.ts:7:25 - error TS2307: Cannot find module 'bcrypt' or its corresponding type declarations.
+
+7 import * as bcrypt from 'bcrypt';
+                          ~~~~~~~~
+
+src/auth/auth.service.ts:21:5 - error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+
+21     process.env.JWT_ACCESS_SECRET ?? 'devvault-access-secret-change-in-production';
+       ~~~~~~~
+
+src/auth/auth.service.ts:23:5 - error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+
+23     process.env.JWT_REFRESH_SECRET ?? 'devvault-refresh-secret-change-in-production';
+       ~~~~~~~
+
+src/auth/auth.service.ts:25:43 - error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+
+25   private readonly accessExpiresIn: any = process.env.JWT_ACCESS_EXPIRES_IN ?? '15m';
+                                             ~~~~~~~
+
+src/auth/auth.service.ts:27:44 - error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+
+27   private readonly refreshExpiresIn: any = process.env.JWT_REFRESH_EXPIRES_IN ?? '7d';
+                                              ~~~~~~~
+
+src/auth/dto/login.dto.ts:1:46 - error TS2307: Cannot find module 'class-validator' or its corresponding type declarations.
+
+1 import { IsEmail, IsString, MinLength } from 'class-validator';
+                                               ~~~~~~~~~~~~~~~~~
+
+src/auth/dto/login.dto.ts:2:29 - error TS2307: Cannot find module '@nestjs/swagger' or its corresponding type declarations.
+
+2 import { ApiProperty } from '@nestjs/swagger';
+                              ~~~~~~~~~~~~~~~~~
+
+src/auth/dto/refresh-token.dto.ts:1:26 - error TS2307: Cannot find module 'class-validator' or its corresponding type declarations.
+
+1 import { IsString } from 'class-validator';
+                           ~~~~~~~~~~~~~~~~~
+
+src/auth/dto/refresh-token.dto.ts:2:29 - error TS2307: Cannot find module '@nestjs/swagger' or its corresponding type declarations.
+
+2 import { ApiProperty } from '@nestjs/swagger';
+                              ~~~~~~~~~~~~~~~~~
+
+src/auth/dto/register.dto.ts:1:57 - error TS2307: Cannot find module 'class-validator' or its corresponding type declarations.
+
+1 import { IsEmail, IsString, MinLength, MaxLength } from 'class-validator';
+                                                          ~~~~~~~~~~~~~~~~~
+
+src/auth/dto/register.dto.ts:2:29 - error TS2307: Cannot find module '@nestjs/swagger' or its corresponding type declarations.
+
+2 import { ApiProperty } from '@nestjs/swagger';
+                              ~~~~~~~~~~~~~~~~~
+
+src/auth/guards/jwt-auth.guard.ts:1:28 - error TS2307: Cannot find module '@nestjs/common' or its corresponding type declarations.
+
+1 import { Injectable } from '@nestjs/common';
+                             ~~~~~~~~~~~~~~~~
+
+src/auth/guards/jwt-auth.guard.ts:2:27 - error TS2307: Cannot find module '@nestjs/passport' or its corresponding type declarations.
+
+2 import { AuthGuard } from '@nestjs/passport';
+                            ~~~~~~~~~~~~~~~~~~
+
+src/auth/strategies/jwt.strategy.ts:1:51 - error TS2307: Cannot find module '@nestjs/common' or its corresponding type declarations.
+
+1 import { Injectable, UnauthorizedException } from '@nestjs/common';
+                                                    ~~~~~~~~~~~~~~~~
+
+src/auth/strategies/jwt.strategy.ts:2:34 - error TS2307: Cannot find module '@nestjs/passport' or its corresponding type declarations.
+
+2 import { PassportStrategy } from '@nestjs/passport';
+                                   ~~~~~~~~~~~~~~~~~~
+
+src/auth/strategies/jwt.strategy.ts:3:38 - error TS2307: Cannot find module 'passport-jwt' or its corresponding type declarations.
+
+3 import { ExtractJwt, Strategy } from 'passport-jwt';
+                                       ~~~~~~~~~~~~~~
+
+src/auth/strategies/jwt.strategy.ts:19:9 - error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+
+19         process.env.JWT_ACCESS_SECRET ??
+           ~~~~~~~
+
+src/common/decorators/current-user.decorator.ts:1:56 - error TS2307: Cannot find module '@nestjs/common' or its corresponding type declarations.
+
+1 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+                                                         ~~~~~~~~~~~~~~~~
+
+src/common/filters/http-exception.filter.ts:6:8 - error TS2307: Cannot find module '@nestjs/common' or its corresponding type declarations.
+
+6 } from '@nestjs/common';
+         ~~~~~~~~~~~~~~~~
+
+src/common/filters/http-exception.filter.ts:7:35 - error TS2307: Cannot find module 'express' or its corresponding type declarations.
+
+7 import { Request, Response } from 'express';
+                                    ~~~~~~~~~
+
+src/dashboard/dashboard.controller.ts:1:44 - error TS2307: Cannot find module '@nestjs/common' or its corresponding type declarations.
+
+1 import { Controller, Get, UseGuards } from '@nestjs/common';
+                                             ~~~~~~~~~~~~~~~~
+
+src/dashboard/dashboard.controller.ts:2:54 - error TS2307: Cannot find module '@nestjs/swagger' or its corresponding type declarations.
+
+2 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+                                                       ~~~~~~~~~~~~~~~~~
+
+src/dashboard/dashboard.module.ts:1:24 - error TS2307: Cannot find module '@nestjs/common' or its corresponding type declarations.
+
+1 import { Module } from '@nestjs/common';
+                         ~~~~~~~~~~~~~~~~
+
+src/dashboard/dashboard.service.ts:1:28 - error TS2307: Cannot find module '@nestjs/common' or its corresponding type declarations.
+
+1 import { Injectable } from '@nestjs/common';
+                             ~~~~~~~~~~~~~~~~
+
+src/dashboard/dashboard.service.ts:10:19 - error TS2339: Property 'note' does not exist on type 'PrismaService'.
+
+10       this.prisma.note.count({ where: { userId, isArchived: false } }),
+                     ~~~~
+
+src/dashboard/dashboard.service.ts:11:19 - error TS2339: Property 'project' does not exist on type 'PrismaService'.
+
+11       this.prisma.project.count({ where: { userId } }),
+                     ~~~~~~~
+
+src/dashboard/dashboard.service.ts:12:19 - error TS2339: Property 'task' does not exist on type 'PrismaService'.
+
+12       this.prisma.task.groupBy({
+                     ~~~~
+
+src/dashboard/dashboard.service.ts:19:42 - error TS7006: Parameter 'sum' implicitly has an 'any' type.
+
+19     const totalTasks = taskStats.reduce((sum, s) => sum + s._count.id, 0);
+                                            ~~~
+
+src/dashboard/dashboard.service.ts:19:47 - error TS7006: Parameter 's' implicitly has an 'any' type.
+
+19     const totalTasks = taskStats.reduce((sum, s) => sum + s._count.id, 0);
+                                                 ~
+
+src/dashboard/dashboard.service.ts:21:23 - error TS7006: Parameter 's' implicitly has an 'any' type.
+
+21       taskStats.find((s) => s.status === 'DONE')?._count.id ?? 0;
+                         ~
+
+src/dashboard/dashboard.service.ts:29:19 - error TS2339: Property 'note' does not exist on type 'PrismaService'.
+
+29       this.prisma.note.findMany({
+                     ~~~~
+
+src/dashboard/dashboard.service.ts:33:19 - error TS2339: Property 'task' does not exist on type 'PrismaService'.
+
+33       this.prisma.task.findMany({
+                     ~~~~
+
+src/main.ts:1:29 - error TS2307: Cannot find module '@nestjs/core' or its corresponding type declarations.
+
+1 import { NestFactory } from '@nestjs/core';
+                              ~~~~~~~~~~~~~~
+
+src/main.ts:2:32 - error TS2307: Cannot find module '@nestjs/common' or its corresponding type declarations.
+
+2 import { ValidationPipe } from '@nestjs/common';
+                                 ~~~~~~~~~~~~~~~~
+
+src/main.ts:3:48 - error TS2307: Cannot find module '@nestjs/swagger' or its corresponding type declarations.
+
+3 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+                                                 ~~~~~~~~~~~~~~~~~
+
+src/main.ts:4:20 - error TS2307: Cannot find module 'helmet' or its corresponding type declarations.
+
+4 import helmet from 'helmet';
+                     ~~~~~~~~
+
+src/main.ts:39:16 - error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+
+39   const port = process.env.PORT ?? 4000;
+                  ~~~~~~~
+
+src/notes/dto/create-note.dto.ts:1:58 - error TS2307: Cannot find module 'class-validator' or its corresponding type declarations.
+
+1 import { IsString, IsArray, IsOptional, MinLength } from 'class-validator';
+                                                           ~~~~~~~~~~~~~~~~~
+
+src/notes/dto/create-note.dto.ts:2:29 - error TS2307: Cannot find module '@nestjs/swagger' or its corresponding type declarations.
+
+2 import { ApiProperty } from '@nestjs/swagger';
+                              ~~~~~~~~~~~~~~~~~
+
+src/notes/notes.controller.ts:12:8 - error TS2307: Cannot find module '@nestjs/common' or its corresponding type declarations.
+
+12 } from '@nestjs/common';
+          ~~~~~~~~~~~~~~~~
+
+src/notes/notes.controller.ts:13:54 - error TS2307: Cannot find module '@nestjs/swagger' or its corresponding type declarations.
+
+13 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+                                                        ~~~~~~~~~~~~~~~~~
+
+src/notes/notes.module.ts:1:24 - error TS2307: Cannot find module '@nestjs/common' or its corresponding type declarations.
+
+1 import { Module } from '@nestjs/common';
+                         ~~~~~~~~~~~~~~~~
+
+src/notes/notes.service.ts:5:8 - error TS2307: Cannot find module '@nestjs/common' or its corresponding type declarations.
+
+5 } from '@nestjs/common';
+         ~~~~~~~~~~~~~~~~
+
+src/notes/notes.service.ts:14:24 - error TS2339: Property 'note' does not exist on type 'PrismaService'.
+
+14     return this.prisma.note.findMany({
+                          ~~~~
+
+src/notes/notes.service.ts:21:24 - error TS2339: Property 'note' does not exist on type 'PrismaService'.
+
+21     return this.prisma.note.create({
+                          ~~~~
+
+src/notes/notes.service.ts:32:36 - error TS2339: Property 'note' does not exist on type 'PrismaService'.
+
+32     const note = await this.prisma.note.findUnique({ where: { id: noteId } });
+                                      ~~~~
+
+src/notes/notes.service.ts:36:23 - error TS2339: Property 'note' does not exist on type 'PrismaService'.
+
+36     await this.prisma.note.update({
+                         ~~~~
+
+src/notes/notes.service.ts:43:36 - error TS2339: Property 'note' does not exist on type 'PrismaService'.
+
+43     const note = await this.prisma.note.findUnique({ where: { id: noteId } });
+                                      ~~~~
+
+src/notes/notes.service.ts:47:23 - error TS2339: Property 'note' does not exist on type 'PrismaService'.
+
+47     await this.prisma.note.delete({ where: { id: noteId } });
+                         ~~~~
+
+src/prisma/prisma.module.ts:1:32 - error TS2307: Cannot find module '@nestjs/common' or its corresponding type declarations.
+
+1 import { Global, Module } from '@nestjs/common';
+                                 ~~~~~~~~~~~~~~~~
+
+src/prisma/prisma.service.ts:1:59 - error TS2307: Cannot find module '@nestjs/common' or its corresponding type declarations.
+
+1 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+                                                            ~~~~~~~~~~~~~~~~
+
+src/prisma/prisma.service.ts:2:30 - error TS2307: Cannot find module '@prisma/client' or its corresponding type declarations.
+
+2 import { PrismaClient } from '@prisma/client';
+                               ~~~~~~~~~~~~~~~~
+
+src/prisma/prisma.service.ts:7:16 - error TS2339: Property '$connect' does not exist on type 'PrismaService'.
+
+7     await this.$connect();
+                 ~~~~~~~~
+
+src/prisma/prisma.service.ts:11:16 - error TS2339: Property '$disconnect' does not exist on type 'PrismaService'.
+
+11     await this.$disconnect();
+                  ~~~~~~~~~~~
+
+src/projects/dto/create-project.dto.ts:1:60 - error TS2307: Cannot find module 'class-validator' or its corresponding type declarations.
+
+1 import { IsString, IsOptional, MinLength, MaxLength } from 'class-validator';
+                                                             ~~~~~~~~~~~~~~~~~
+
+src/projects/dto/create-project.dto.ts:2:29 - error TS2307: Cannot find module '@nestjs/swagger' or its corresponding type declarations.
+
+2 import { ApiProperty } from '@nestjs/swagger';
+                              ~~~~~~~~~~~~~~~~~
+
+src/projects/projects.controller.ts:8:8 - error TS2307: Cannot find module '@nestjs/common' or its corresponding type declarations.
+
+8 } from '@nestjs/common';
+         ~~~~~~~~~~~~~~~~
+
+src/projects/projects.controller.ts:9:54 - error TS2307: Cannot find module '@nestjs/swagger' or its corresponding type declarations.
+
+9 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+                                                       ~~~~~~~~~~~~~~~~~
+
+src/projects/projects.module.ts:1:24 - error TS2307: Cannot find module '@nestjs/common' or its corresponding type declarations.
+
+1 import { Module } from '@nestjs/common';
