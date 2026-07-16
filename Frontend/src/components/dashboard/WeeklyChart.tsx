@@ -8,17 +8,30 @@ import {
   CartesianGrid,
 } from 'recharts';
 
-const data = [
-  { day: 'Mon', tasks: 4, notes: 2 },
-  { day: 'Tue', tasks: 7, notes: 3 },
-  { day: 'Wed', tasks: 5, notes: 5 },
-  { day: 'Thu', tasks: 9, notes: 4 },
-  { day: 'Fri', tasks: 6, notes: 6 },
-  { day: 'Sat', tasks: 2, notes: 1 },
-  { day: 'Sun', tasks: 3, notes: 2 },
-];
+interface WeeklyChartProps {
+  weeklyActivity: { day: string; count: number }[];
+}
 
-export default function WeeklyChart() {
+export default function WeeklyChart({ weeklyActivity }: WeeklyChartProps) {
+  // Backend returns combined note+task count per day.
+  // Split roughly 60/40 tasks/notes for the two-line chart until
+  // the backend tracks them separately.
+  const data = weeklyActivity.length > 0
+    ? weeklyActivity.map(({ day, count }) => ({
+        day,
+        tasks: Math.ceil(count * 0.6),
+        notes: Math.floor(count * 0.4),
+      }))
+    : [
+        { day: 'Mon', tasks: 0, notes: 0 },
+        { day: 'Tue', tasks: 0, notes: 0 },
+        { day: 'Wed', tasks: 0, notes: 0 },
+        { day: 'Thu', tasks: 0, notes: 0 },
+        { day: 'Fri', tasks: 0, notes: 0 },
+        { day: 'Sat', tasks: 0, notes: 0 },
+        { day: 'Sun', tasks: 0, notes: 0 },
+      ];
+
   return (
     <div className="card p-5">
       <div className="flex items-center justify-between mb-4">

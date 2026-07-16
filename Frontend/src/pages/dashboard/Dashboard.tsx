@@ -5,17 +5,20 @@ import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import StorageGauge from '@/components/dashboard/StorageGauge';
 import WeeklyChart from '@/components/dashboard/WeeklyChart';
 import Skeleton from '@/components/ui/Skeleton';
-import { mockStats, mockActivity } from '@/services/mockData';
+import { mockActivity } from '@/services/mockData';
+import { dashboardService } from '@/services/dashboardService';
 import { useAuth } from '@/hooks/useAuth';
-
-async function fetchDashboard() {
-  await new Promise((r) => setTimeout(r, 350));
-  return { stats: mockStats, activity: mockActivity };
-}
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { data, isLoading } = useQuery({ queryKey: ['dashboard'], queryFn: fetchDashboard });
+  const { data, isLoading } = useQuery({
+    queryKey: ['dashboard'],
+    queryFn: () => dashboardService.getStats(),
+  });
+
+  const pendingTasks = data ? data.totalTasks - data.completedTasks : 0;
+  const storageUsedGB = data ? +(data.storageUsed / 1024).toFixed(2) : 0;
+  const storageLimitGB = data ? +(data.storageLimit / 1024).toFixed(0) : 5;
 
   return (
     <div className="space-y-6">
@@ -34,21 +37,20 @@ export default function Dashboard() {
         </div>
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Notes" value={data!.stats.notes} icon={FiFileText} sub="12 pinned" />
-          <StatCard label="Snippets" value={data!.stats.snippets} icon={FiCode} sub="8 languages" />
-          <StatCard label="Active projects" value={data!.stats.activeProjects} icon={FiFolder} />
+          <StatCard label="Notes" value={data?.totalNotes ?? 0} icon={FiFileText} />
+          <StatCard label="Snippets" value={0} icon={FiCode} sub="Coming soon" />
+          <StatCard label="Active projects" value={data?.totalProjects ?? 0} icon={FiFolder} />
           <StatCard
             label="Pending tasks"
-            value={data!.stats.pendingTasks}
+            value={pendingTasks}
             icon={FiCheckSquare}
-            sub="3 due this week"
           />
         </div>
       )}
 
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <WeeklyChart />
+          <WeeklyChart weeklyActivity={data?.weeklyActivity ?? []} />
           <div className="card p-5 space-y-4">
             <h3 className="font-display font-semibold text-sm">Usage</h3>
             {isLoading ? (
@@ -57,14 +59,14 @@ export default function Dashboard() {
               <div className="space-y-4">
                 <StorageGauge
                   label="Storage"
-                  used={data!.stats.storageUsedGB}
-                  limit={data!.stats.storageLimitGB}
+                  used={storageUsedGB}
+                  limit={storageLimitGB}
                   unit="GB"
                 />
                 <StorageGauge
                   label="API calls today"
-                  used={data!.stats.apiCallsToday}
-                  limit={data!.stats.apiCallsLimit}
+                  used={0}
+                  limit={5000}
                   unit=""
                 />
               </div>
@@ -72,7 +74,7 @@ export default function Dashboard() {
           </div>
         </div>
         <div>
-          {isLoading ? <Skeleton className="h-72" /> : <ActivityFeed items={data!.activity} />}
+          {isLoading ? <Skeleton className="h-72" /> : <ActivityFeed items={mockActivity} />}
         </div>
       </div>
     </div>
