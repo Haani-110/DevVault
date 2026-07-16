@@ -5,7 +5,6 @@ import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import StorageGauge from '@/components/dashboard/StorageGauge';
 import WeeklyChart from '@/components/dashboard/WeeklyChart';
 import Skeleton from '@/components/ui/Skeleton';
-import { mockActivity } from '@/services/mockData';
 import { dashboardService } from '@/services/dashboardService';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -74,7 +73,7 @@ export default function Dashboard() {
           </div>
         </div>
         <div>
-          {isLoading ? <Skeleton className="h-72" /> : <ActivityFeed items={mockActivity} />}
+          {isLoading ? <Skeleton className="h-72" /> : <ActivityFeed items={[]} />}
         </div>
       </div>
     </div>
