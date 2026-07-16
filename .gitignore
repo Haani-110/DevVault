@@ -1,8 +1,21 @@
-node_modules
-dist
-dist-ssr
-*.local
-.env
-.env.local
+# dependencies
+**/node_modules
+
+# build output
+**/dist
+**/dist-ssr
+**/build
+
+# env files
+**/.env
+**/.env.local
+
+# editor/OS
 .DS_Store
+*.local
+
+# logs
 *.log
+
+# TypeScript build info
+**/*.tsbuildinfo
