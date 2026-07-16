@@ -1,7 +1,7 @@
 import { mockUser } from './mockData';
 import type { User } from '@/types';
 
-const USE_MOCK = true; // flip to false once NestJS auth module is live
+const USE_MOCK = false;
 
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 

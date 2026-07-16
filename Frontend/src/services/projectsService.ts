@@ -1,7 +1,7 @@
 import { mockProjects, mockTasks } from './mockData';
 import type { Project, Task, TaskStatus } from '@/types';
 
-const USE_MOCK = true;
+const USE_MOCK = false;
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 let tasks = [...mockTasks];
 
