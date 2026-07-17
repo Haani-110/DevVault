@@ -2,75 +2,50 @@
 
 An AI-ready developer productivity platform — notes, snippets, projects, API collections, credentials, and files in one dashboard.
 
+## Stack
+
+- **Frontend**: React 19 + Vite + TypeScript (port 5000)
+- **Backend**: NestJS 11 + Prisma ORM + PostgreSQL (port 4000)
+
 ## Project structure
 
 ```
-Frontend/   React 19 + Vite + TypeScript (auth, dashboard, notes, projects, settings)
-Backend/    NestJS 11 + Prisma + PostgreSQL REST API
+/
+├── Frontend/   React 19 + Vite + TypeScript
+├── Backend/    NestJS 11 + Prisma + PostgreSQL
+└── package.json  (root convenience scripts)
 ```
 
-## How to run
+## Running on Replit
 
-Two workflows start automatically:
+Two workflows are configured and run automatically:
 
-| Workflow | Command | Port |
-|---|---|---|
-| Start application | `cd Frontend && npm run dev` | 5000 |
-| Start Backend | `cd Backend && npm run start:dev` | 4000 |
+- **Start application** — `cd Frontend && npm run dev` (port 5000)
+- **Start Backend** — `cd Backend && npm run start:dev` (port 4000)
 
-The Vite dev server proxies `/api/*` to `http://localhost:4000`, so the frontend and backend work together automatically.
-
-## Backend stack
-
-NestJS 11 · TypeScript · Prisma ORM · PostgreSQL (Replit built-in) · JWT (access 15m + refresh 7d) · Passport · bcrypt · class-validator · Swagger (docs at `/api/docs`)
-
-## API endpoints (base: `/api/v1`)
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| POST | `/auth/register` | — | Register new user |
-| POST | `/auth/login` | — | Login |
-| POST | `/auth/refresh` | — | Refresh access token |
-| GET | `/notes` | ✓ | List user notes |
-| POST | `/notes` | ✓ | Create note |
-| PATCH | `/notes/:id/pin` | ✓ | Toggle pin |
-| DELETE | `/notes/:id` | ✓ | Delete note |
-| GET | `/projects` | ✓ | List projects |
-| GET | `/projects/:id` | ✓ | Get project |
-| POST | `/projects` | ✓ | Create project |
-| GET | `/projects/:id/tasks` | ✓ | List project tasks |
-| PATCH | `/tasks/:id` | ✓ | Move task (update status) |
-| GET | `/dashboard/stats` | ✓ | Dashboard stats |
-
-## Frontend stack
-
-React 19 · Vite · TypeScript (strict) · Tailwind CSS · React Router · Zustand · TanStack Query · Axios · React Hook Form + Zod · Framer Motion · react-icons · Recharts · @monaco-editor/react · @uiw/react-md-editor · react-hot-toast
-
-## Frontend services (all live — USE_MOCK = false)
-
-- `authService` → `/auth/login`, `/auth/register`, `/auth/refresh`
-- `notesService` → `/notes` CRUD
-- `projectsService` → `/projects` + `/tasks` CRUD
+The frontend proxies all `/api` requests to the backend at `http://localhost:4000`.
 
 ## Database
 
-Replit built-in PostgreSQL. Prisma schema in `Backend/prisma/schema.prisma`. Tables: `User`, `Note`, `Project`, `Task`.
+Uses Replit's built-in managed PostgreSQL. The `DATABASE_URL` environment variable is automatically provided. Schema was applied with:
 
-To apply schema changes: `cd Backend && npx prisma db push`
+```bash
+cd Backend && npx prisma db push
+```
 
-## What's implemented (frontend + backend)
+## API docs
 
-- Auth — register, login, JWT token refresh, protected routes
-- Dashboard — stat cards, weekly activity chart, activity feed
-- Notes — list, search, pin/favorite, markdown editor, delete
-- Projects — grid with progress, Kanban board (drag & drop)
-- Settings — profile form stub
-- Dark/light theme toggle (persisted)
+Swagger UI is available at `http://localhost:4000/api/docs` when the backend is running.
 
-## What's stubbed (sidebar shows "Soon")
+## Environment variables
 
-Snippets, API Collections, Password Vault, File Manager, Admin Panel
+| Variable | Required | Notes |
+|---|---|---|
+| `DATABASE_URL` | ✅ | Auto-provided by Replit |
+| `JWT_ACCESS_SECRET` | — | Has hardcoded dev default in `Backend/src/auth/auth.service.ts` |
+| `JWT_REFRESH_SECRET` | — | Has hardcoded dev default in `Backend/src/auth/auth.service.ts` |
+| `PORT` | — | Defaults to `4000` |
 
 ## User preferences
 
-_None recorded yet._
+<!-- User preferences will be recorded here as needed -->
