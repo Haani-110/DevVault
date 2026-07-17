@@ -9,19 +9,12 @@ import {
 } from 'recharts';
 
 interface WeeklyChartProps {
-  weeklyActivity: { day: string; count: number }[];
+  weeklyActivity: { day: string; notes: number; tasks: number }[];
 }
 
 export default function WeeklyChart({ weeklyActivity }: WeeklyChartProps) {
-  // Backend returns combined note+task count per day.
-  // Split roughly 60/40 tasks/notes for the two-line chart until
-  // the backend tracks them separately.
   const data = weeklyActivity.length > 0
-    ? weeklyActivity.map(({ day, count }) => ({
-        day,
-        tasks: Math.ceil(count * 0.6),
-        notes: Math.floor(count * 0.4),
-      }))
+    ? weeklyActivity
     : [
         { day: 'Mon', tasks: 0, notes: 0 },
         { day: 'Tue', tasks: 0, notes: 0 },

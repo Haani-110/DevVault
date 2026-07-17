@@ -33,7 +33,7 @@ export default function NotesPage() {
   }
 
   async function handleDelete(id: string) {
-    await notesService.remove(id);
+    await notesService.delete(id);
     queryClient.invalidateQueries({ queryKey: ['notes'] });
     toast.success('Note deleted');
   }

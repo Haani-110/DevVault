@@ -31,6 +31,8 @@ export const notesService = {
         content: input.content ?? '',
         tags: input.tags ?? [],
         isPinned: false,
+        isFavorite: false,
+        isArchived: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
