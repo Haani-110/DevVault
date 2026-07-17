@@ -1,3 +1,4 @@
+import { api } from '@/lib/axios';
 import { mockUser } from './mockData';
 import type { User } from '@/types';
 
@@ -35,7 +36,7 @@ export const authService = {
         refreshToken: 'mock-refresh-token',
       };
     }
-    const { data } = await import('@/lib/axios').then((m) => m.api.post('/auth/login', payload));
+    const { data } = await api.post('/auth/login', payload);
     return data;
   },
 
@@ -48,7 +49,7 @@ export const authService = {
         refreshToken: 'mock-refresh-token',
       };
     }
-    const { data } = await import('@/lib/axios').then((m) => m.api.post('/auth/register', payload));
+    const { data } = await api.post('/auth/register', payload);
     return data;
   },
 };

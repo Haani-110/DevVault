@@ -1,3 +1,4 @@
+import { api } from '@/lib/axios';
 import { mockTasks } from './mockData';
 import type { Project, Task, TaskStatus } from '@/types';
 
@@ -17,7 +18,6 @@ export const projectsService = {
       await delay(350);
       return [];
     }
-    const { api } = await import('@/lib/axios');
     const { data } = await api.get('/projects');
     return data;
   },
@@ -25,9 +25,16 @@ export const projectsService = {
   async create(payload: CreateProjectPayload): Promise<Project> {
     if (USE_MOCK) {
       await delay(300);
-      return { id: `proj_${Date.now()}`, taskCount: 0, completedCount: 0, updatedAt: new Date().toISOString(), description: '', color: '#6366f1', ...payload };
+      return {
+        id: `proj_${Date.now()}`,
+        taskCount: 0,
+        completedCount: 0,
+        updatedAt: new Date().toISOString(),
+        description: '',
+        color: '#6366f1',
+        ...payload,
+      };
     }
-    const { api } = await import('@/lib/axios');
     const { data } = await api.post('/projects', payload);
     return data;
   },
@@ -37,7 +44,6 @@ export const projectsService = {
       await delay(300);
       return tasks.filter((t) => t.projectId === projectId);
     }
-    const { api } = await import('@/lib/axios');
     const { data } = await api.get(`/projects/${projectId}/tasks`);
     return data;
   },
@@ -48,7 +54,6 @@ export const projectsService = {
       tasks = tasks.map((t) => (t.id === taskId ? { ...t, status } : t));
       return;
     }
-    const { api } = await import('@/lib/axios');
     await api.patch(`/tasks/${taskId}`, { status });
   },
 };

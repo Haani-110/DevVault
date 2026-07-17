@@ -19,8 +19,10 @@ export default function Settings() {
       await userService.updateProfile({ username: username.trim() || undefined, bio: bio.trim() });
       toast.success('Profile updated');
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to save';
-      toast.error(msg);
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        (err instanceof Error ? err.message : 'Failed to save');
+      toast.error(String(msg));
     } finally {
       setSaving(false);
     }
@@ -32,8 +34,11 @@ export default function Settings() {
       await userService.deleteAccount();
       toast('Account deleted', { icon: '🗑️' });
       signOut();
-    } catch {
-      toast.error('Failed to delete account');
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        (err instanceof Error ? err.message : 'Failed to delete account');
+      toast.error(String(msg));
       setDeleting(false);
       setConfirmDelete(false);
     }

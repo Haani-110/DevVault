@@ -29,7 +29,12 @@ export default function ProjectsPage() {
       toast.success('Project created');
       closeModal();
     },
-    onError: () => toast.error('Failed to create project'),
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        (err instanceof Error ? err.message : 'Failed to create project');
+      toast.error(String(msg));
+    },
   });
 
   function closeModal() {
