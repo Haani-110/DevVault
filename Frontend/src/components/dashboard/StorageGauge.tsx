@@ -1,27 +1,36 @@
+import clsx from 'clsx';
+
 interface Props {
   label: string;
   used: number;
   limit: number;
-  unit: string;
+  unit?: string;
 }
 
-export default function StorageGauge({ label, used, limit, unit }: Props) {
-  const pct = Math.min(100, Math.round((used / limit) * 100));
-  const tone = pct > 85 ? 'bg-danger' : pct > 60 ? 'bg-brass-400' : 'bg-mint-500';
+export default function StorageGauge({ label, used, limit, unit = '' }: Props) {
+  const pct = limit > 0 ? Math.min(Math.round((used / limit) * 100), 100) : 0;
+  const tone =
+    pct >= 90 ? 'bg-red-400' :
+    pct >= 70 ? 'bg-brass-400' :
+    'bg-mint-500';
+
+  const toneText =
+    pct >= 90 ? 'text-red-400' :
+    pct >= 70 ? 'text-brass-400' :
+    'text-mint-500';
 
   return (
-    <div>
-      <div className="flex items-baseline justify-between mb-1.5">
-        <span className="text-xs font-medium text-text-muted">{label}</span>
-        <span className="text-xs font-mono text-text-faint">
-          {used}
-          {unit} / {limit}
-          {unit}
+    <div className="space-y-2">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-text-muted font-medium">{label}</span>
+        <span className={clsx('font-mono font-semibold', toneText)}>
+          {used} / {limit}{unit ? ` ${unit}` : ''}
+          <span className="text-text-faint font-normal ml-1.5">({pct}%)</span>
         </span>
       </div>
-      <div className="h-1.5 rounded-full bg-surface-hover overflow-hidden">
+      <div className="h-2 rounded-full bg-surface-hover overflow-hidden">
         <div
-          className={`h-full ${tone} rounded-full transition-all`}
+          className={clsx('h-full rounded-full transition-all duration-500', tone)}
           style={{ width: `${pct}%` }}
         />
       </div>

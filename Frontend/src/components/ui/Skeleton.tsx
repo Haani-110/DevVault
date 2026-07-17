@@ -1,5 +1,16 @@
 import clsx from 'clsx';
 
-export default function Skeleton({ className }: { className?: string }) {
-  return <div className={clsx('animate-pulse bg-surface-hover rounded', className)} />;
+interface Props {
+  className?: string;
+}
+
+export default function Skeleton({ className }: Props) {
+  return (
+    <div
+      className={clsx(
+        'rounded-lg bg-surface-hover animate-pulse',
+        className
+      )}
+    />
+  );
 }
