@@ -30,8 +30,11 @@ export default function Register() {
     try {
       await signup(data);
       navigate('/dashboard');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not create account');
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        (err instanceof Error ? err.message : 'Could not create account');
+      toast.error(String(msg));
     } finally {
       setSubmitting(false);
     }

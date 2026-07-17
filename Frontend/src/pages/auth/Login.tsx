@@ -29,8 +29,11 @@ export default function Login() {
     try {
       await login(data);
       navigate('/dashboard');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not sign in');
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        (err instanceof Error ? err.message : 'Could not sign in');
+      toast.error(String(msg));
     } finally {
       setSubmitting(false);
     }
