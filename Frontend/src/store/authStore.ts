@@ -25,6 +25,22 @@ export const useAuthStore = create<AuthState>()(
       logout: () =>
         set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false }),
     }),
-    { name: 'devvault-auth', version: 1 }
+    {
+      name: 'devvault-auth',
+      version: 2,
+      // Clear any state that has a mock token — leftover from USE_MOCK era
+      migrate: (state: unknown, version: number) => {
+        if (version < 2) {
+          const s = state as Partial<AuthState>;
+          if (
+            s.accessToken?.startsWith('mock-') ||
+            s.refreshToken?.startsWith('mock-')
+          ) {
+            return { user: null, accessToken: null, refreshToken: null, isAuthenticated: false };
+          }
+        }
+        return state as AuthState;
+      },
+    }
   )
 );

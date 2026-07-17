@@ -1,13 +1,42 @@
-import type { FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { userService } from '@/services/userService';
 import toast from 'react-hot-toast';
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
-  function handleSave(e: FormEvent) {
+  const [username, setUsername] = useState(user?.username ?? '');
+  const [bio, setBio] = useState(user?.bio ?? '');
+
+  async function handleSave(e: FormEvent) {
     e.preventDefault();
-    toast.success('Profile updated');
+    setSaving(true);
+    try {
+      await userService.updateProfile({ username: username.trim() || undefined, bio: bio.trim() });
+      toast.success('Profile updated');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to save';
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    setDeleting(true);
+    try {
+      await userService.deleteAccount();
+      toast('Account deleted', { icon: '🗑️' });
+      signOut();
+    } catch {
+      toast.error('Failed to delete account');
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
   }
 
   return (
@@ -21,29 +50,65 @@ export default function Settings() {
         <h3 className="font-display font-semibold text-sm mb-1">Profile</h3>
         <div>
           <label className="label">Username</label>
-          <input className="input" defaultValue={user?.username} />
+          <input
+            className="input"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            maxLength={40}
+          />
         </div>
         <div>
           <label className="label">Email</label>
-          <input className="input" defaultValue={user?.email} type="email" />
+          <input className="input opacity-60 cursor-not-allowed" value={user?.email ?? ''} readOnly />
+          <p className="text-xs text-text-faint mt-1">Email cannot be changed.</p>
         </div>
         <div>
           <label className="label">Bio</label>
-          <textarea className="input min-h-20 resize-none" defaultValue={user?.bio} />
+          <textarea
+            className="input min-h-20 resize-none"
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            maxLength={300}
+          />
         </div>
         <div className="flex justify-end">
-          <button type="submit" className="btn-primary">
-            Save changes
+          <button type="submit" className="btn-primary" disabled={saving}>
+            {saving ? 'Saving…' : 'Save changes'}
           </button>
         </div>
       </form>
 
-      <div className="card p-5 border-danger/30">
+      <div className="card p-5 border border-danger/30">
         <h3 className="font-display font-semibold text-sm mb-1 text-danger">Danger zone</h3>
         <p className="text-xs text-text-muted mb-4">
-          Deleting your account permanently removes all notes, projects and files.
+          Deleting your account permanently removes all notes, projects, tasks and files. This cannot be undone.
         </p>
-        <button className="btn-danger">Delete account</button>
+
+        {!confirmDelete ? (
+          <button className="btn-danger" onClick={() => setConfirmDelete(true)}>
+            Delete account
+          </button>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-danger font-medium">Are you absolutely sure?</p>
+            <div className="flex gap-3">
+              <button
+                className="btn-danger"
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+              >
+                {deleting ? 'Deleting…' : 'Yes, delete everything'}
+              </button>
+              <button
+                className="btn-ghost"
+                onClick={() => setConfirmDelete(false)}
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
