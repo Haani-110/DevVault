@@ -41,10 +41,11 @@ model User {
   role         Role       @default(DEVELOPER)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
-  notes        Note[]
-  projects     Project[]
-  tasks        Task[]
-  snippets     Snippet[]
+  notes          Note[]
+  projects       Project[]
+  tasks          Task[]
+  snippets       Snippet[]
+  passwordResets PasswordReset[]
 }
 
 model Note {
@@ -87,6 +88,16 @@ model Task {
   assignee    String?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
 }
 
 model Snippet {
