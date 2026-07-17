@@ -1,11 +1,13 @@
-import { FiFileText, FiCheckSquare, FiFolder, FiUpload, FiLock } from 'react-icons/fi';
+import React from 'react';
+import { FiFileText, FiCheckSquare, FiFolder, FiUpload, FiLock, FiCode } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 import type { ActivityItem } from '@/types';
 
-const icons = {
+const icons: Record<string, React.ElementType> = {
   note: FiFileText,
   task: FiCheckSquare,
   project: FiFolder,
+  snippet: FiCode,
   file: FiUpload,
   auth: FiLock,
 };

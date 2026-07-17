@@ -1,4 +1,4 @@
-import { FiStar, FiTrash2 } from 'react-icons/fi';
+import { FiStar, FiTrash2, FiEdit2, FiArchive } from 'react-icons/fi';
 import { TbPin, TbPinFilled } from 'react-icons/tb';
 import { formatDistanceToNow } from 'date-fns';
 import clsx from 'clsx';
@@ -8,10 +8,20 @@ import type { Note } from '@/types';
 interface Props {
   note: Note;
   onTogglePin: (id: string) => void;
+  onToggleFavorite: (id: string) => void;
+  onToggleArchive: (id: string) => void;
+  onEdit: (note: Note) => void;
   onDelete: (id: string) => void;
 }
 
-export default function NoteCard({ note, onTogglePin, onDelete }: Props) {
+export default function NoteCard({
+  note,
+  onTogglePin,
+  onToggleFavorite,
+  onToggleArchive,
+  onEdit,
+  onDelete,
+}: Props) {
   return (
     <div className="card p-4 flex flex-col gap-3 hover:border-brass-400/30 transition-colors group">
       <div className="flex items-start justify-between gap-2">
@@ -27,6 +37,30 @@ export default function NoteCard({ note, onTogglePin, onDelete }: Props) {
             ) : (
               <TbPin size={14} />
             )}
+          </button>
+          <button
+            onClick={() => onToggleFavorite(note.id)}
+            aria-label={note.isFavorite ? 'Unfavorite' : 'Favorite'}
+            className={clsx(
+              'w-7 h-7 flex items-center justify-center rounded hover:bg-surface-hover',
+              note.isFavorite ? 'text-brass-400' : 'text-text-muted hover:text-brass-400'
+            )}
+          >
+            <FiStar size={13} fill={note.isFavorite ? 'currentColor' : 'none'} />
+          </button>
+          <button
+            onClick={() => onEdit(note)}
+            aria-label="Edit note"
+            className="w-7 h-7 flex items-center justify-center rounded text-text-muted hover:text-text hover:bg-surface-hover"
+          >
+            <FiEdit2 size={13} />
+          </button>
+          <button
+            onClick={() => onToggleArchive(note.id)}
+            aria-label="Archive note"
+            className="w-7 h-7 flex items-center justify-center rounded text-text-muted hover:text-text hover:bg-surface-hover"
+          >
+            <FiArchive size={13} />
           </button>
           <button
             onClick={() => onDelete(note.id)}
@@ -48,9 +82,9 @@ export default function NoteCard({ note, onTogglePin, onDelete }: Props) {
             </Badge>
           ))}
         </div>
-        <span className={clsx('text-text-faint', note.isFavorite && 'text-brass-400')}>
-          <FiStar size={13} fill={note.isFavorite ? 'currentColor' : 'none'} />
-        </span>
+        {note.isPinned && (
+          <TbPinFilled size={12} className="text-brass-400 shrink-0" />
+        )}
       </div>
 
       <p className="text-[11px] text-text-faint font-mono">

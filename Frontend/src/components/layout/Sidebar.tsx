@@ -7,8 +7,8 @@ import Badge from '@/components/ui/Badge';
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: FiGrid },
   { to: '/notes', label: 'Notes', icon: FiFileText },
+  { to: '/snippets', label: 'Snippets', icon: FiCode },
   { to: '/projects', label: 'Projects', icon: FiFolder },
-  { to: '/snippets', label: 'Snippets', icon: FiCode, soon: true },
   { to: '/collections', label: 'API Collections', icon: FiSend, soon: true },
   { to: '/vault', label: 'Password Vault', icon: FiLock, soon: true },
 ];

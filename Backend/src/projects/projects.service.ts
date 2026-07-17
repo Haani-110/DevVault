@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
+import { UpdateProjectDto } from './dto/update-project.dto';
 
 @Injectable()
 export class ProjectsService {
@@ -71,5 +72,42 @@ export class ProjectsService {
       completedCount: 0,
       updatedAt: project.updatedAt.toISOString(),
     };
+  }
+
+  async update(userId: string, projectId: string, dto: UpdateProjectDto) {
+    const project = await this.prisma.project.findUnique({ where: { id: projectId } });
+    if (!project) throw new NotFoundException('Project not found');
+    if (project.userId !== userId) throw new ForbiddenException();
+
+    const updated = await this.prisma.project.update({
+      where: { id: projectId },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.color !== undefined && { color: dto.color }),
+      },
+      include: {
+        _count: { select: { tasks: true } },
+        tasks: { select: { status: true } },
+      },
+    });
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      description: updated.description,
+      color: updated.color,
+      taskCount: updated._count.tasks,
+      completedCount: updated.tasks.filter((t) => t.status === 'DONE').length,
+      updatedAt: updated.updatedAt.toISOString(),
+    };
+  }
+
+  async remove(userId: string, projectId: string) {
+    const project = await this.prisma.project.findUnique({ where: { id: projectId } });
+    if (!project) throw new NotFoundException('Project not found');
+    if (project.userId !== userId) throw new ForbiddenException();
+
+    await this.prisma.project.delete({ where: { id: projectId } });
   }
 }

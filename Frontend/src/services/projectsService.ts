@@ -1,10 +1,5 @@
 import { api } from '@/lib/axios';
-import { mockTasks } from './mockData';
 import type { Project, Task, TaskStatus } from '@/types';
-
-const USE_MOCK = false;
-const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
-let tasks = [...mockTasks];
 
 export interface CreateProjectPayload {
   name: string;
@@ -12,48 +7,55 @@ export interface CreateProjectPayload {
   color?: string;
 }
 
+export interface UpdateProjectPayload {
+  name?: string;
+  description?: string;
+  color?: string;
+}
+
+export interface CreateTaskPayload {
+  title: string;
+  description?: string;
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  status?: 'BACKLOG' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE';
+  dueDate?: string;
+}
+
 export const projectsService = {
   async list(): Promise<Project[]> {
-    if (USE_MOCK) {
-      await delay(350);
-      return [];
-    }
     const { data } = await api.get('/projects');
     return data;
   },
 
   async create(payload: CreateProjectPayload): Promise<Project> {
-    if (USE_MOCK) {
-      await delay(300);
-      return {
-        id: `proj_${Date.now()}`,
-        taskCount: 0,
-        completedCount: 0,
-        updatedAt: new Date().toISOString(),
-        description: '',
-        color: '#6366f1',
-        ...payload,
-      };
-    }
     const { data } = await api.post('/projects', payload);
     return data;
   },
 
+  async update(id: string, payload: UpdateProjectPayload): Promise<Project> {
+    const { data } = await api.patch(`/projects/${id}`, payload);
+    return data;
+  },
+
+  async remove(id: string): Promise<void> {
+    await api.delete(`/projects/${id}`);
+  },
+
   async listTasks(projectId: string): Promise<Task[]> {
-    if (USE_MOCK) {
-      await delay(300);
-      return tasks.filter((t) => t.projectId === projectId);
-    }
     const { data } = await api.get(`/projects/${projectId}/tasks`);
     return data;
   },
 
+  async createTask(projectId: string, payload: CreateTaskPayload): Promise<Task> {
+    const { data } = await api.post(`/tasks/project/${projectId}`, payload);
+    return data;
+  },
+
   async moveTask(taskId: string, status: TaskStatus): Promise<void> {
-    if (USE_MOCK) {
-      await delay(150);
-      tasks = tasks.map((t) => (t.id === taskId ? { ...t, status } : t));
-      return;
-    }
     await api.patch(`/tasks/${taskId}`, { status });
+  },
+
+  async deleteTask(taskId: string): Promise<void> {
+    await api.delete(`/tasks/${taskId}`);
   },
 };

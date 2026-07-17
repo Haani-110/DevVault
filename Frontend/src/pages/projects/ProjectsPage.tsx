@@ -6,15 +6,23 @@ import ProjectCard from '@/components/projects/ProjectCard';
 import EmptyState from '@/components/ui/EmptyState';
 import Skeleton from '@/components/ui/Skeleton';
 import toast from 'react-hot-toast';
+import type { Project } from '@/types';
 
 const COLORS = ['#E8A33D', '#5EEAD4', '#F87171', '#818CF8', '#34D399', '#60A5FA', '#F472B6', '#A78BFA'];
+
+interface ProjectFormState {
+  name: string;
+  description: string;
+  color: string;
+}
+
+const defaultForm = (): ProjectFormState => ({ name: '', description: '', color: COLORS[0] });
 
 export default function ProjectsPage() {
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [color, setColor] = useState(COLORS[0]);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [form, setForm] = useState<ProjectFormState>(defaultForm());
 
   const { data: projects, isLoading } = useQuery({
     queryKey: ['projects'],
@@ -30,25 +38,60 @@ export default function ProjectsPage() {
       closeModal();
     },
     onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        (err instanceof Error ? err.message : 'Failed to create project');
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+        || (err instanceof Error ? err.message : 'Failed to create project');
       toast.error(String(msg));
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Partial<ProjectFormState> }) =>
+      projectsService.update(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      toast.success('Project updated');
+      closeModal();
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+        || (err instanceof Error ? err.message : 'Failed to update project');
+      toast.error(String(msg));
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: projectsService.remove,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      toast.success('Project deleted');
+    },
+    onError: () => toast.error('Failed to delete project'),
+  });
+
+  function openEdit(project: Project) {
+    setEditingProject(project);
+    setForm({ name: project.name, description: project.description ?? '', color: project.color });
+    setShowModal(true);
+  }
+
   function closeModal() {
     setShowModal(false);
-    setName('');
-    setDescription('');
-    setColor(COLORS[0]);
+    setEditingProject(null);
+    setForm(defaultForm());
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
-    createMutation.mutate({ name: name.trim(), description: description.trim() || undefined, color });
+    if (!form.name.trim()) return;
+    if (editingProject) {
+      updateMutation.mutate({ id: editingProject.id, payload: { ...form, name: form.name.trim() } });
+    } else {
+      createMutation.mutate({ ...form, name: form.name.trim() });
+    }
   }
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
     <div className="space-y-6">
@@ -59,7 +102,7 @@ export default function ProjectsPage() {
             Track work across every client and side project.
           </p>
         </div>
-        <button className="btn-primary" onClick={() => setShowModal(true)}>
+        <button className="btn-primary" onClick={() => { setShowModal(true); setEditingProject(null); setForm(defaultForm()); }}>
           <FiPlus size={15} /> New project
         </button>
       </div>
@@ -79,17 +122,23 @@ export default function ProjectsPage() {
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {projects.map((p) => (
-            <ProjectCard key={p.id} project={p} />
+            <ProjectCard
+              key={p.id}
+              project={p}
+              onEdit={openEdit}
+              onDelete={(id) => deleteMutation.mutate(id)}
+            />
           ))}
         </div>
       )}
 
-      {/* New Project Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="card w-full max-w-md p-6 space-y-5">
             <div className="flex items-center justify-between">
-              <h2 className="font-display font-semibold text-lg">New project</h2>
+              <h2 className="font-display font-semibold text-lg">
+                {editingProject ? 'Edit project' : 'New project'}
+              </h2>
               <button onClick={closeModal} className="text-text-muted hover:text-text transition-colors">
                 <FiX size={18} />
               </button>
@@ -102,8 +151,8 @@ export default function ProjectsPage() {
                 </label>
                 <input
                   autoFocus
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                   placeholder="e.g. DevVault Mobile"
                   className="input w-full"
                   maxLength={100}
@@ -115,8 +164,8 @@ export default function ProjectsPage() {
                   Description
                 </label>
                 <input
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  value={form.description}
+                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                   placeholder="What's this project about?"
                   className="input w-full"
                   maxLength={300}
@@ -132,12 +181,12 @@ export default function ProjectsPage() {
                     <button
                       key={c}
                       type="button"
-                      onClick={() => setColor(c)}
+                      onClick={() => setForm((f) => ({ ...f, color: c }))}
                       className="w-7 h-7 rounded-full border-2 transition-all"
                       style={{
                         backgroundColor: c,
-                        borderColor: color === c ? '#fff' : 'transparent',
-                        transform: color === c ? 'scale(1.15)' : 'scale(1)',
+                        borderColor: form.color === c ? '#fff' : 'transparent',
+                        transform: form.color === c ? 'scale(1.15)' : 'scale(1)',
                       }}
                     />
                   ))}
@@ -151,9 +200,9 @@ export default function ProjectsPage() {
                 <button
                   type="submit"
                   className="btn-primary"
-                  disabled={!name.trim() || createMutation.isPending}
+                  disabled={!form.name.trim() || isPending}
                 >
-                  {createMutation.isPending ? 'Creating…' : 'Create project'}
+                  {isPending ? 'Saving…' : editingProject ? 'Save changes' : 'Create project'}
                 </button>
               </div>
             </form>

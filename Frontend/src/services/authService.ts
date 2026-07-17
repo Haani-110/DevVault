@@ -1,55 +1,33 @@
 import { api } from '@/lib/axios';
-import { mockUser } from './mockData';
-import type { User } from '@/types';
+import type { User, AuthTokens } from '@/types';
 
-const USE_MOCK = false;
-
-const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
-
-export interface LoginPayload {
+export interface LoginInput {
   email: string;
   password: string;
 }
 
-export interface RegisterPayload {
-  email: string;
+export interface RegisterInput {
   username: string;
+  email: string;
   password: string;
-}
-
-export interface AuthResponse {
-  user: User;
-  accessToken: string;
-  refreshToken: string;
 }
 
 export const authService = {
-  async login(payload: LoginPayload): Promise<AuthResponse> {
-    if (USE_MOCK) {
-      await delay(600);
-      if (!payload.email || payload.password.length < 6) {
-        throw new Error('Invalid email or password');
-      }
-      return {
-        user: { ...mockUser, email: payload.email },
-        accessToken: 'mock-access-token',
-        refreshToken: 'mock-refresh-token',
-      };
-    }
-    const { data } = await api.post('/auth/login', payload);
+  async login(input: LoginInput): Promise<{ user: User } & AuthTokens> {
+    const { data } = await api.post('/auth/login', input);
     return data;
   },
 
-  async register(payload: RegisterPayload): Promise<AuthResponse> {
-    if (USE_MOCK) {
-      await delay(700);
-      return {
-        user: { ...mockUser, email: payload.email, username: payload.username },
-        accessToken: 'mock-access-token',
-        refreshToken: 'mock-refresh-token',
-      };
-    }
-    const { data } = await api.post('/auth/register', payload);
+  async register(input: RegisterInput): Promise<{ user: User } & AuthTokens> {
+    const { data } = await api.post('/auth/register', input);
     return data;
+  },
+
+  async logout(): Promise<void> {
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      // Ignore errors — client clears tokens regardless
+    }
   },
 };

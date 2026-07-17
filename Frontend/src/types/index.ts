@@ -6,6 +6,10 @@ export interface User {
   username: string;
   avatarUrl?: string;
   bio?: string;
+  location?: string;
+  website?: string;
+  githubUrl?: string;
+  linkedinUrl?: string;
   role: Role;
   createdAt: string;
 }
@@ -38,22 +42,34 @@ export interface Task {
   status: TaskStatus;
   priority: TaskPriority;
   dueDate?: string;
-  assignee?: Pick<User, 'id' | 'username' | 'avatarUrl'>;
+  assignee?: string;
 }
 
 export interface Project {
   id: string;
   name: string;
-  description: string;
+  description?: string;
   color: string;
   taskCount: number;
   completedCount: number;
   updatedAt: string;
 }
 
+export interface Snippet {
+  id: string;
+  title: string;
+  description?: string;
+  code: string;
+  language: string;
+  tags: string[];
+  isFavorite: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ActivityItem {
   id: string;
-  type: 'note' | 'task' | 'project' | 'file' | 'auth';
+  type: 'note' | 'task' | 'project' | 'snippet' | 'auth';
   message: string;
   timestamp: string;
 }

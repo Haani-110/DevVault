@@ -28,18 +28,23 @@ enum TaskPriority {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  username     String    @unique
+  id           String     @id @default(cuid())
+  email        String     @unique
+  username     String     @unique
   passwordHash String
   avatarUrl    String?
   bio          String?
-  role         Role      @default(DEVELOPER)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  location     String?
+  website      String?
+  githubUrl    String?
+  linkedinUrl  String?
+  role         Role       @default(DEVELOPER)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
   notes        Note[]
   projects     Project[]
   tasks        Task[]
+  snippets     Snippet[]
 }
 
 model Note {
@@ -82,4 +87,18 @@ model Task {
   assignee    String?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+}
+
+model Snippet {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  code        String
+  language    String   @default("plaintext")
+  tags        String[]
+  isFavorite  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

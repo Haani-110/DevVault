@@ -4,6 +4,10 @@ import { PrismaService } from '../prisma/prisma.service';
 export interface UpdateProfileDto {
   username?: string;
   bio?: string;
+  location?: string;
+  website?: string;
+  githubUrl?: string;
+  linkedinUrl?: string;
 }
 
 @Injectable()
@@ -19,7 +23,22 @@ export class UsersService {
   }
 
   findById(id: string) {
-    return this.prisma.user.findUnique({ where: { id } });
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        bio: true,
+        avatarUrl: true,
+        location: true,
+        website: true,
+        githubUrl: true,
+        linkedinUrl: true,
+        role: true,
+        createdAt: true,
+      },
+    });
   }
 
   create(data: { email: string; username: string; passwordHash: string }) {
@@ -38,17 +57,26 @@ export class UsersService {
       data: {
         ...(dto.username && { username: dto.username }),
         ...(dto.bio !== undefined && { bio: dto.bio }),
+        ...(dto.location !== undefined && { location: dto.location }),
+        ...(dto.website !== undefined && { website: dto.website }),
+        ...(dto.githubUrl !== undefined && { githubUrl: dto.githubUrl }),
+        ...(dto.linkedinUrl !== undefined && { linkedinUrl: dto.linkedinUrl }),
+      },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        bio: true,
+        avatarUrl: true,
+        location: true,
+        website: true,
+        githubUrl: true,
+        linkedinUrl: true,
+        role: true,
+        createdAt: true,
       },
     });
-    return {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      bio: user.bio,
-      avatarUrl: user.avatarUrl,
-      role: user.role,
-      createdAt: user.createdAt,
-    };
+    return user;
   }
 
   async deleteAccount(userId: string) {

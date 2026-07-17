@@ -4,6 +4,7 @@ import { FiArrowLeft } from 'react-icons/fi';
 import { projectsService } from '@/services/projectsService';
 import KanbanBoard from '@/components/projects/KanbanBoard';
 import Skeleton from '@/components/ui/Skeleton';
+import toast from 'react-hot-toast';
 import type { TaskStatus } from '@/types';
 
 export default function ProjectDetail() {
@@ -19,9 +20,31 @@ export default function ProjectDetail() {
     enabled: !!id,
   });
 
-  async function handleMove(taskId: string, status: TaskStatus) {
-    await projectsService.moveTask(taskId, status);
+  async function handleMove(taskId: string, newStatus: TaskStatus) {
+    await projectsService.moveTask(taskId, newStatus);
     queryClient.invalidateQueries({ queryKey: ['tasks', id] });
+  }
+
+  async function handleCreateTask(status: TaskStatus, title: string) {
+    if (!id) return;
+    try {
+      await projectsService.createTask(id, { title, priority: 'MEDIUM', status });
+      queryClient.invalidateQueries({ queryKey: ['tasks', id] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    } catch {
+      toast.error('Failed to create task');
+    }
+  }
+
+  async function handleDeleteTask(taskId: string) {
+    try {
+      await projectsService.deleteTask(taskId);
+      queryClient.invalidateQueries({ queryKey: ['tasks', id] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      toast.success('Task deleted');
+    } catch {
+      toast.error('Failed to delete task');
+    }
   }
 
   return (
@@ -39,7 +62,14 @@ export default function ProjectDetail() {
           )}
           <h1 className="font-display text-2xl font-semibold">{project?.name ?? 'Project'}</h1>
         </div>
-        {project && <p className="text-sm text-text-muted mt-1">{project.description}</p>}
+        {project?.description && (
+          <p className="text-sm text-text-muted mt-1">{project.description}</p>
+        )}
+        {tasks && (
+          <p className="text-xs text-text-faint mt-1 font-mono">
+            {tasks.filter((t) => t.status === 'DONE').length} / {tasks.length} tasks completed
+          </p>
+        )}
       </div>
 
       {isLoading || !tasks ? (
@@ -49,7 +79,12 @@ export default function ProjectDetail() {
           ))}
         </div>
       ) : (
-        <KanbanBoard tasks={tasks} onMove={handleMove} />
+        <KanbanBoard
+          tasks={tasks}
+          onMove={handleMove}
+          onCreateTask={handleCreateTask}
+          onDeleteTask={handleDeleteTask}
+        />
       )}
     </div>
   );

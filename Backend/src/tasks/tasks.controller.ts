@@ -1,6 +1,8 @@
 import {
   Controller,
+  Post,
   Patch,
+  Delete,
   Param,
   Body,
   UseGuards,
@@ -12,6 +14,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { TasksService } from './tasks.service';
 import { MoveTaskDto } from './dto/move-task.dto';
+import { CreateTaskDto } from './dto/create-task.dto';
 
 interface AuthUser {
   userId: string;
@@ -26,6 +29,16 @@ interface AuthUser {
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
+  @Post('project/:projectId')
+  @ApiOperation({ summary: 'Create a task in a project' })
+  create(
+    @CurrentUser() user: AuthUser,
+    @Param('projectId') projectId: string,
+    @Body() dto: CreateTaskDto,
+  ) {
+    return this.tasksService.create(user.userId, projectId, dto);
+  }
+
   @Patch(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Update task status (move on Kanban)' })
@@ -35,5 +48,12 @@ export class TasksController {
     @Body() dto: MoveTaskDto,
   ) {
     await this.tasksService.move(user.userId, id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete a task' })
+  async remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.tasksService.remove(user.userId, id);
   }
 }

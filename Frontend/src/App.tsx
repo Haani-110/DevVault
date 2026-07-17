@@ -11,6 +11,7 @@ import Settings from '@/pages/dashboard/Settings';
 import NotesPage from '@/pages/notes/NotesPage';
 import ProjectsPage from '@/pages/projects/ProjectsPage';
 import ProjectDetail from '@/pages/projects/ProjectDetail';
+import SnippetsPage from '@/pages/snippets/SnippetsPage';
 import NotFound from '@/pages/NotFound';
 
 export default function App() {
@@ -28,6 +29,7 @@ export default function App() {
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/notes" element={<NotesPage />} />
+          <Route path="/snippets" element={<SnippetsPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/settings" element={<Settings />} />

@@ -24,6 +24,26 @@ class UpdateProfileDto {
   @IsOptional()
   @MaxLength(300)
   bio?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  location?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  website?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  githubUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  linkedinUrl?: string;
 }
 
 interface AuthUser {
@@ -46,7 +66,7 @@ export class UsersController {
   }
 
   @Patch('profile')
-  @ApiOperation({ summary: 'Update profile (username, bio)' })
+  @ApiOperation({ summary: 'Update profile' })
   updateProfile(@CurrentUser() user: AuthUser, @Body() dto: UpdateProfileDto) {
     return this.usersService.updateProfile(user.userId, dto);
   }

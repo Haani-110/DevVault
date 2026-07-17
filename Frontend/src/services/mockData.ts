@@ -42,8 +42,8 @@ export const mockActivity: ActivityItem[] = [
   },
   {
     id: 'a4',
-    type: 'file',
-    message: 'Uploaded schema-diagram-v3.png',
+    type: 'snippet',
+    message: 'Saved snippet "Prisma pagination helper"',
     timestamp: '2026-07-15T16:22:00Z',
   },
   {

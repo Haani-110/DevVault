@@ -4,6 +4,10 @@ import type { User } from '@/types';
 export interface UpdateProfilePayload {
   username?: string;
   bio?: string;
+  location?: string;
+  website?: string;
+  githubUrl?: string;
+  linkedinUrl?: string;
 }
 
 export const userService = {
