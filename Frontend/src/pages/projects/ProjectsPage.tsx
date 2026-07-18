@@ -133,8 +133,9 @@ export default function ProjectsPage() {
       )}
 
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="card w-full max-w-md p-6 space-y-5">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm" onClick={closeModal}>
+          <div className="flex min-h-full items-center justify-center p-4 pt-16 pb-8">
+          <div className="card w-full max-w-md p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h2 className="font-display font-semibold text-lg">
                 {editingProject ? 'Edit project' : 'New project'}
@@ -206,6 +207,7 @@ export default function ProjectsPage() {
                 </button>
               </div>
             </form>
+          </div>
           </div>
         </div>
       )}

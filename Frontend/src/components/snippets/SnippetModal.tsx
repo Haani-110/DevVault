@@ -40,11 +40,12 @@ export default function SnippetModal({ snippet, onClose, onCreate, onUpdate }: P
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm"
       onClick={onClose}
     >
+      <div className="flex min-h-full items-center justify-center p-4 pt-16 pb-8">
       <div
-        className="card w-full max-w-3xl max-h-[90vh] overflow-y-auto p-5 flex flex-col gap-4"
+        className="card w-full max-w-3xl p-5 flex flex-col gap-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -123,6 +124,7 @@ export default function SnippetModal({ snippet, onClose, onCreate, onUpdate }: P
             {snippet ? 'Save changes' : 'Save snippet'}
           </button>
         </div>
+      </div>
       </div>
     </div>
   );

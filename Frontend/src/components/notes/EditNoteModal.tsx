@@ -32,11 +32,12 @@ export default function EditNoteModal({ note, onClose, onSave }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm"
       onClick={onClose}
     >
+      <div className="flex min-h-full items-center justify-center p-4 pt-16 pb-8">
       <div
-        className="card w-full max-w-2xl max-h-[85vh] overflow-y-auto p-5"
+        className="card w-full max-w-2xl p-5"
         onClick={(e) => e.stopPropagation()}
         data-color-mode={theme}
       >
@@ -79,6 +80,7 @@ export default function EditNoteModal({ note, onClose, onSave }: Props) {
             Save changes
           </button>
         </div>
+      </div>
       </div>
     </div>
   );
