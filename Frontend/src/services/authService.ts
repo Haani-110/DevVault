@@ -30,4 +30,8 @@ export const authService = {
       // Ignore errors — client clears tokens regardless
     }
   },
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await api.post('/auth/change-password', { currentPassword, newPassword });
+  },
 };

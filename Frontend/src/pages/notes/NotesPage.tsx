@@ -10,7 +10,7 @@ import Skeleton from '@/components/ui/Skeleton';
 import { notesService } from '@/services/notesService';
 import type { Note } from '@/types';
 
-type FilterTab = 'all' | 'pinned' | 'favorites';
+type FilterTab = 'all' | 'pinned' | 'favorites' | 'archived';
 
 export default function NotesPage() {
   const queryClient = useQueryClient();
@@ -27,8 +27,16 @@ export default function NotesPage() {
   const filtered = useMemo(() => {
     if (!notes) return [];
     let result = notes;
-    if (activeTab === 'pinned') result = result.filter((n) => n.isPinned);
-    if (activeTab === 'favorites') result = result.filter((n) => n.isFavorite);
+
+    if (activeTab === 'archived') {
+      result = result.filter((n) => n.isArchived);
+    } else {
+      // Non-archived tabs only show active notes
+      result = result.filter((n) => !n.isArchived);
+      if (activeTab === 'pinned') result = result.filter((n) => n.isPinned);
+      if (activeTab === 'favorites') result = result.filter((n) => n.isFavorite);
+    }
+
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(
@@ -41,6 +49,9 @@ export default function NotesPage() {
     return result;
   }, [notes, search, activeTab]);
 
+  const archivedCount = useMemo(() => notes?.filter((n) => n.isArchived).length ?? 0, [notes]);
+  const activeNotes = useMemo(() => notes?.filter((n) => !n.isArchived) ?? [], [notes]);
+
   async function handleTogglePin(id: string) {
     await notesService.togglePin(id);
     queryClient.invalidateQueries({ queryKey: ['notes'] });
@@ -51,10 +62,10 @@ export default function NotesPage() {
     queryClient.invalidateQueries({ queryKey: ['notes'] });
   }
 
-  async function handleToggleArchive(id: string) {
+  async function handleToggleArchive(id: string, currentlyArchived: boolean) {
     await notesService.toggleArchive(id);
     queryClient.invalidateQueries({ queryKey: ['notes'] });
-    toast.success('Note archived');
+    toast.success(currentlyArchived ? 'Note restored' : 'Note archived');
   }
 
   async function handleDelete(id: string) {
@@ -76,10 +87,11 @@ export default function NotesPage() {
     toast.success('Note updated');
   }
 
-  const tabs: { id: FilterTab; label: string }[] = [
-    { id: 'all', label: 'All' },
-    { id: 'pinned', label: 'Pinned' },
-    { id: 'favorites', label: 'Favorites' },
+  const tabs: { id: FilterTab; label: string; count?: number }[] = [
+    { id: 'all', label: 'All', count: activeNotes.length },
+    { id: 'pinned', label: 'Pinned', count: activeNotes.filter((n) => n.isPinned).length },
+    { id: 'favorites', label: 'Favorites', count: activeNotes.filter((n) => n.isFavorite).length },
+    { id: 'archived', label: 'Archived', count: archivedCount },
   ];
 
   return (
@@ -98,9 +110,11 @@ export default function NotesPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <button className="btn-primary" onClick={() => setShowModal(true)}>
-            <FiPlus size={15} /> New note
-          </button>
+          {activeTab !== 'archived' && (
+            <button className="btn-primary" onClick={() => setShowModal(true)}>
+              <FiPlus size={15} /> New note
+            </button>
+          )}
         </div>
       </div>
 
@@ -110,15 +124,16 @@ export default function NotesPage() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-1.5 ${
               activeTab === tab.id
                 ? 'border-brass-400 text-brass-400'
                 : 'border-transparent text-text-muted hover:text-text'
             }`}
           >
+            {tab.id === 'archived' && <FiArchive size={12} />}
             {tab.label}
-            {tab.id === 'all' && notes && (
-              <span className="ml-1.5 text-xs text-text-faint font-mono">({notes.length})</span>
+            {tab.count !== undefined && tab.count > 0 && (
+              <span className="text-xs text-text-faint font-mono">({tab.count})</span>
             )}
           </button>
         ))}
@@ -132,21 +147,31 @@ export default function NotesPage() {
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState
-          icon={<FiFileText size={20} />}
-          title={search ? 'No notes match your search' : `No ${activeTab === 'all' ? '' : activeTab + ' '}notes yet`}
+          icon={activeTab === 'archived' ? <FiArchive size={20} /> : <FiFileText size={20} />}
+          title={
+            search
+              ? 'No notes match your search'
+              : activeTab === 'archived'
+              ? 'No archived notes'
+              : activeTab === 'all'
+              ? 'No notes yet'
+              : `No ${activeTab} notes`
+          }
           description={
             search
               ? 'Try a different keyword or clear your search.'
+              : activeTab === 'archived'
+              ? 'Archived notes appear here. Archive a note to clear your main view without deleting it.'
               : activeTab === 'all'
               ? 'Capture your first idea, snippet reference or meeting summary.'
               : `${activeTab === 'pinned' ? 'Pin' : 'Favorite'} notes to see them here.`
           }
           action={
-            !search && activeTab === 'all' && (
+            activeTab === 'all' && !search ? (
               <button className="btn-primary" onClick={() => setShowModal(true)}>
-                <FiPlus size={15} /> New note
+                <FiPlus size={14} /> Create first note
               </button>
-            )
+            ) : undefined
           }
         />
       ) : (
@@ -157,7 +182,7 @@ export default function NotesPage() {
               note={note}
               onTogglePin={handleTogglePin}
               onToggleFavorite={handleToggleFavorite}
-              onToggleArchive={handleToggleArchive}
+              onToggleArchive={(id) => handleToggleArchive(id, note.isArchived)}
               onEdit={setEditingNote}
               onDelete={handleDelete}
             />
@@ -165,23 +190,12 @@ export default function NotesPage() {
         </div>
       )}
 
-      {/* Archive section */}
-      {activeTab === 'all' && notes && notes.length > 0 && (
-        <div className="pt-2">
-          <button
-            onClick={async () => {
-              const archived = await notesService.list();
-              // Show archived count as info
-              toast(`${archived.length} active notes`, { icon: <FiArchive size={14} /> });
-            }}
-            className="text-xs text-text-faint hover:text-text-muted flex items-center gap-1.5"
-          >
-            <FiArchive size={12} /> Archived notes are hidden from this view
-          </button>
-        </div>
+      {showModal && (
+        <NewNoteModal
+          onClose={() => setShowModal(false)}
+          onCreate={handleCreate}
+        />
       )}
-
-      {showModal && <NewNoteModal onClose={() => setShowModal(false)} onCreate={handleCreate} />}
       {editingNote && (
         <EditNoteModal
           note={editingNote}

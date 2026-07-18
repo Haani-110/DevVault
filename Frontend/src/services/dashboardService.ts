@@ -14,6 +14,12 @@ export interface RecentActivityItem {
   timestamp: string;
 }
 
+export interface RecentNote {
+  id: string;
+  title: string;
+  updatedAt: string;
+}
+
 export interface DashboardApiResponse {
   totalNotes: number;
   totalProjects: number;
@@ -24,6 +30,7 @@ export interface DashboardApiResponse {
   storageLimit: number;
   weeklyActivity: WeeklyDataPoint[];
   recentActivity: RecentActivityItem[];
+  recentNotes: RecentNote[];
 }
 
 export const dashboardService = {

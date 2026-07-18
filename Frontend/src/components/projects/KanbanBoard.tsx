@@ -2,7 +2,7 @@ import { useState, type DragEvent } from 'react';
 import { FiPlus } from 'react-icons/fi';
 import clsx from 'clsx';
 import TaskCard from './TaskCard';
-import type { Task, TaskStatus } from '@/types';
+import type { Task, TaskStatus, TaskPriority } from '@/types';
 
 const columns: { status: TaskStatus; label: string; color: string }[] = [
   { status: 'BACKLOG', label: 'Backlog', color: 'text-text-muted' },
@@ -11,10 +11,17 @@ const columns: { status: TaskStatus; label: string; color: string }[] = [
   { status: 'DONE', label: 'Done', color: 'text-green-400' },
 ];
 
+const priorities: { value: TaskPriority; label: string; color: string }[] = [
+  { value: 'LOW', label: 'Low', color: 'text-text-muted' },
+  { value: 'MEDIUM', label: 'Medium', color: 'text-blue-400' },
+  { value: 'HIGH', label: 'High', color: 'text-brass-400' },
+  { value: 'URGENT', label: 'Urgent', color: 'text-red-400' },
+];
+
 interface Props {
   tasks: Task[];
   onMove: (taskId: string, status: TaskStatus) => void;
-  onCreateTask?: (status: TaskStatus, title: string) => void;
+  onCreateTask?: (status: TaskStatus, title: string, priority: TaskPriority, dueDate?: string) => void;
   onDeleteTask?: (taskId: string) => void;
 }
 
@@ -22,6 +29,8 @@ export default function KanbanBoard({ tasks, onMove, onCreateTask, onDeleteTask 
   const [dragOverCol, setDragOverCol] = useState<TaskStatus | null>(null);
   const [addingTo, setAddingTo] = useState<TaskStatus | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>('MEDIUM');
+  const [newTaskDue, setNewTaskDue] = useState('');
 
   function handleDragStart(e: DragEvent, taskId: string) {
     e.dataTransfer.setData('text/plain', taskId);
@@ -37,11 +46,13 @@ export default function KanbanBoard({ tasks, onMove, onCreateTask, onDeleteTask 
   function startAdding(status: TaskStatus) {
     setAddingTo(status);
     setNewTaskTitle('');
+    setNewTaskPriority('MEDIUM');
+    setNewTaskDue('');
   }
 
   function commitAdd(status: TaskStatus) {
     if (newTaskTitle.trim() && onCreateTask) {
-      onCreateTask(status, newTaskTitle.trim());
+      onCreateTask(status, newTaskTitle.trim(), newTaskPriority, newTaskDue || undefined);
     }
     setAddingTo(null);
     setNewTaskTitle('');
@@ -97,6 +108,24 @@ export default function KanbanBoard({ tasks, onMove, onCreateTask, onDeleteTask 
                     if (e.key === 'Escape') setAddingTo(null);
                   }}
                 />
+                <div className="flex gap-2">
+                  <select
+                    className="input text-xs py-1 flex-1"
+                    value={newTaskPriority}
+                    onChange={(e) => setNewTaskPriority(e.target.value as TaskPriority)}
+                  >
+                    {priorities.map((p) => (
+                      <option key={p.value} value={p.value}>{p.label} priority</option>
+                    ))}
+                  </select>
+                  <input
+                    type="date"
+                    className="input text-xs py-1 flex-1"
+                    value={newTaskDue}
+                    onChange={(e) => setNewTaskDue(e.target.value)}
+                    title="Due date (optional)"
+                  />
+                </div>
                 <div className="flex gap-2">
                   <button
                     className="btn-primary text-xs py-1 px-3"

@@ -6,7 +6,7 @@ import { projectsService } from '@/services/projectsService';
 import KanbanBoard from '@/components/projects/KanbanBoard';
 import Skeleton from '@/components/ui/Skeleton';
 import toast from 'react-hot-toast';
-import type { TaskStatus, Project } from '@/types';
+import type { TaskStatus, TaskPriority, Project } from '@/types';
 
 const COLORS = ['#E8A33D', '#5EEAD4', '#F87171', '#818CF8', '#34D399', '#60A5FA', '#F472B6', '#A78BFA'];
 
@@ -59,10 +59,10 @@ export default function ProjectDetail() {
     queryClient.invalidateQueries({ queryKey: ['projects'] });
   }
 
-  async function handleCreateTask(status: TaskStatus, title: string) {
+  async function handleCreateTask(status: TaskStatus, title: string, priority: TaskPriority, dueDate?: string) {
     if (!id) return;
     try {
-      await projectsService.createTask(id, { title, priority: 'MEDIUM', status });
+      await projectsService.createTask(id, { title, priority, status, dueDate });
       queryClient.invalidateQueries({ queryKey: ['tasks', id] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
     } catch {

@@ -86,7 +86,7 @@ export class DashboardService {
     }));
 
     // Recent activity feed — merge notes, tasks, snippets sorted by date
-    const [latestNotes, latestTasks, latestSnippets] = await Promise.all([
+    const [latestNotes, latestTasks, latestSnippets, topRecentNotes] = await Promise.all([
       this.prisma.note.findMany({
         where: { userId },
         select: { id: true, title: true, createdAt: true, updatedAt: true },
@@ -102,6 +102,12 @@ export class DashboardService {
       this.prisma.snippet.findMany({
         where: { userId },
         select: { id: true, title: true, language: true, updatedAt: true },
+        orderBy: { updatedAt: 'desc' },
+        take: 5,
+      }),
+      this.prisma.note.findMany({
+        where: { userId, isArchived: false },
+        select: { id: true, title: true, updatedAt: true },
         orderBy: { updatedAt: 'desc' },
         take: 5,
       }),
@@ -140,6 +146,11 @@ export class DashboardService {
       storageLimit: 5120,
       weeklyActivity,
       recentActivity: activityItems,
+      recentNotes: topRecentNotes.map((n) => ({
+        id: n.id,
+        title: n.title,
+        updatedAt: n.updatedAt.toISOString(),
+      })),
     };
   }
 }

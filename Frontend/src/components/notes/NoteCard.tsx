@@ -14,6 +14,30 @@ interface Props {
   onDelete: (id: string) => void;
 }
 
+/** Strip common markdown syntax for plain-text preview */
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    .replace(/!\[.*?\]\(.*?\)/g, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/^[-*+]\s+/gm, '')
+    .replace(/^\d+\.\s+/gm, '')
+    .replace(/^>\s*/gm, '')
+    .replace(/---+/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function wordCount(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
 export default function NoteCard({
   note,
   onTogglePin,
@@ -22,6 +46,9 @@ export default function NoteCard({
   onEdit,
   onDelete,
 }: Props) {
+  const preview = stripMarkdown(note.content);
+  const words = wordCount(note.content);
+
   return (
     <div className="card p-4 flex flex-col gap-3 hover:border-brass-400/30 transition-colors group">
       <div className="flex items-start justify-between gap-2">
@@ -57,8 +84,11 @@ export default function NoteCard({
           </button>
           <button
             onClick={() => onToggleArchive(note.id)}
-            aria-label="Archive note"
-            className="w-7 h-7 flex items-center justify-center rounded text-text-muted hover:text-text hover:bg-surface-hover"
+            aria-label={note.isArchived ? 'Unarchive note' : 'Archive note'}
+            className={clsx(
+              'w-7 h-7 flex items-center justify-center rounded hover:bg-surface-hover',
+              note.isArchived ? 'text-brass-400' : 'text-text-muted hover:text-text'
+            )}
           >
             <FiArchive size={13} />
           </button>
@@ -72,23 +102,28 @@ export default function NoteCard({
         </div>
       </div>
 
-      <p className="text-xs text-text-muted line-clamp-3 leading-relaxed">{note.content}</p>
+      {/* Clean text preview — no raw markdown symbols */}
+      <p className="text-xs text-text-muted line-clamp-3 leading-relaxed">
+        {preview || <span className="text-text-faint italic">No content</span>}
+      </p>
 
-      <div className="flex items-center justify-between mt-1">
+      <div className="flex items-center justify-between mt-auto pt-1">
         <div className="flex gap-1.5 flex-wrap">
-          {note.tags.map((tag) => (
-            <Badge key={tag} tone="muted">
-              {tag}
-            </Badge>
+          {note.tags.slice(0, 3).map((tag) => (
+            <Badge key={tag} tone="muted">#{tag}</Badge>
           ))}
+          {note.tags.length > 3 && (
+            <Badge tone="muted">+{note.tags.length - 3}</Badge>
+          )}
         </div>
-        {note.isPinned && (
-          <TbPinFilled size={12} className="text-brass-400 shrink-0" />
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {note.isPinned && <TbPinFilled size={12} className="text-brass-400" />}
+          <span className="text-[11px] text-text-faint font-mono">{words} words</span>
+        </div>
       </div>
 
       <p className="text-[11px] text-text-faint font-mono">
-        Updated {formatDistanceToNow(new Date(note.updatedAt), { addSuffix: true })}
+        {formatDistanceToNow(new Date(note.updatedAt), { addSuffix: true })}
       </p>
     </div>
   );

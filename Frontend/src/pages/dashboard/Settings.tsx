@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
+import { FiLock, FiEye, FiEyeOff, FiCheck } from 'react-icons/fi';
 import { useAuth } from '@/hooks/useAuth';
 import { userService } from '@/services/userService';
+import { authService } from '@/services/authService';
 import toast from 'react-hot-toast';
 
 export default function Settings() {
@@ -9,12 +11,32 @@ export default function Settings() {
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  // Profile fields
   const [username, setUsername] = useState(user?.username ?? '');
   const [bio, setBio] = useState(user?.bio ?? '');
   const [location, setLocation] = useState(user?.location ?? '');
   const [website, setWebsite] = useState(user?.website ?? '');
   const [githubUrl, setGithubUrl] = useState(user?.githubUrl ?? '');
   const [linkedinUrl, setLinkedinUrl] = useState(user?.linkedinUrl ?? '');
+
+  // Change password fields
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [changingPw, setChangingPw] = useState(false);
+
+  const pwStrength = (() => {
+    if (!newPw) return 0;
+    let s = 0;
+    if (newPw.length >= 8) s++;
+    if (/[A-Z]/.test(newPw)) s++;
+    if (/[0-9]/.test(newPw)) s++;
+    if (/[^A-Za-z0-9]/.test(newPw)) s++;
+    return s;
+  })();
+  const pwStrengthLabel = ['', 'Weak', 'Fair', 'Good', 'Strong'][pwStrength];
+  const pwStrengthColor = ['', 'bg-red-400', 'bg-brass-400', 'bg-yellow-400', 'bg-green-400'][pwStrength];
 
   async function handleSave(e: FormEvent) {
     e.preventDefault();
@@ -36,6 +58,25 @@ export default function Settings() {
       toast.error(String(msg));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleChangePassword(e: FormEvent) {
+    e.preventDefault();
+    if (newPw !== confirmPw) { toast.error('Passwords do not match'); return; }
+    if (newPw.length < 8) { toast.error('Password must be at least 8 characters'); return; }
+    setChangingPw(true);
+    try {
+      await authService.changePassword(currentPw, newPw);
+      toast.success('Password changed successfully');
+      setCurrentPw(''); setNewPw(''); setConfirmPw('');
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        (err instanceof Error ? err.message : 'Failed to change password');
+      toast.error(String(msg));
+    } finally {
+      setChangingPw(false);
     }
   }
 
@@ -62,6 +103,7 @@ export default function Settings() {
         <p className="text-sm text-text-muted mt-1">Manage your profile and account preferences.</p>
       </div>
 
+      {/* Profile */}
       <form onSubmit={handleSave} className="card p-5 space-y-4">
         <h3 className="font-display font-semibold text-sm mb-1">Profile</h3>
 
@@ -149,6 +191,94 @@ export default function Settings() {
         </div>
       </form>
 
+      {/* Change Password */}
+      <form onSubmit={handleChangePassword} className="card p-5 space-y-4">
+        <div>
+          <h3 className="font-display font-semibold text-sm mb-0.5">Change password</h3>
+          <p className="text-xs text-text-faint">Must be at least 8 characters.</p>
+        </div>
+
+        <div>
+          <label className="label">Current password</label>
+          <div className="relative">
+            <FiLock className="absolute left-3 top-1/2 -translate-y-1/2 text-text-faint" size={14} />
+            <input
+              type={showPw ? 'text' : 'password'}
+              className="input pl-9 pr-10"
+              value={currentPw}
+              onChange={(e) => setCurrentPw(e.target.value)}
+              autoComplete="current-password"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPw((s) => !s)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-text-faint hover:text-text"
+              tabIndex={-1}
+            >
+              {showPw ? <FiEyeOff size={14} /> : <FiEye size={14} />}
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label className="label">New password</label>
+          <div className="relative">
+            <FiLock className="absolute left-3 top-1/2 -translate-y-1/2 text-text-faint" size={14} />
+            <input
+              type={showPw ? 'text' : 'password'}
+              className="input pl-9"
+              value={newPw}
+              onChange={(e) => setNewPw(e.target.value)}
+              autoComplete="new-password"
+              required
+            />
+          </div>
+          {newPw.length > 0 && (
+            <div className="mt-2 space-y-1">
+              <div className="flex gap-1">
+                {[1,2,3,4].map((i) => (
+                  <div key={i} className={`h-1 flex-1 rounded-full transition-all ${i <= pwStrength ? pwStrengthColor : 'bg-surface-hover'}`} />
+                ))}
+              </div>
+              <p className="text-xs text-text-faint">{pwStrengthLabel}</p>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label className="label">Confirm new password</label>
+          <div className="relative">
+            <FiLock className="absolute left-3 top-1/2 -translate-y-1/2 text-text-faint" size={14} />
+            <input
+              type={showPw ? 'text' : 'password'}
+              className="input pl-9 pr-10"
+              value={confirmPw}
+              onChange={(e) => setConfirmPw(e.target.value)}
+              autoComplete="new-password"
+              required
+            />
+            {confirmPw && confirmPw === newPw && (
+              <FiCheck size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-green-400" />
+            )}
+          </div>
+          {confirmPw && confirmPw !== newPw && (
+            <p className="text-xs text-red-400 mt-1">Passwords do not match</p>
+          )}
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={changingPw || !currentPw || !newPw || newPw !== confirmPw}
+          >
+            {changingPw ? 'Updating…' : 'Update password'}
+          </button>
+        </div>
+      </form>
+
+      {/* Danger zone */}
       <div className="card p-5 border border-danger/30">
         <h3 className="font-display font-semibold text-sm mb-1 text-danger">Danger zone</h3>
         <p className="text-xs text-text-muted mb-4">
@@ -163,18 +293,10 @@ export default function Settings() {
           <div className="space-y-3">
             <p className="text-sm text-danger font-medium">Are you absolutely sure?</p>
             <div className="flex gap-3">
-              <button
-                className="btn-danger"
-                onClick={handleDeleteAccount}
-                disabled={deleting}
-              >
+              <button className="btn-danger" onClick={handleDeleteAccount} disabled={deleting}>
                 {deleting ? 'Deleting…' : 'Yes, delete everything'}
               </button>
-              <button
-                className="btn-ghost"
-                onClick={() => setConfirmDelete(false)}
-                disabled={deleting}
-              >
+              <button className="btn-ghost" onClick={() => setConfirmDelete(false)} disabled={deleting}>
                 Cancel
               </button>
             </div>
