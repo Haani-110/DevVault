@@ -1,0 +1,845 @@
+DevVault - Professional SaaS Full Stack Project Specification
+Project Overview
+
+Build a production-grade SaaS application named DevVault.
+
+DevVault is an AI-ready Developer Productivity Platform that allows developers, freelancers, startups and small teams to securely manage notes, snippets, projects, API collections, credentials, tasks, documentation, files and developer resources inside one centralized dashboard.
+
+The application must be scalable, secure, maintainable, containerized, cloud deployable and follow enterprise-level architecture.
+
+The codebase should demonstrate senior-level software engineering practices and be suitable for:
+
+Portfolio
+Resume
+Freelance Clients
+Startup MVP
+SaaS Product
+Technical Interviews
+
+This project should be built exactly like a real commercial application.
+
+Tech Stack (Locked)
+Frontend
+React 19
+Vite
+TypeScript
+TailwindCSS
+React Router
+Zustand
+React Query (TanStack Query)
+Axios
+React Hook Form
+Zod Validation
+Framer Motion
+React Icons
+Chart.js
+Recharts
+Monaco Editor
+Markdown Editor
+Toast Notifications
+Backend
+NestJS 11
+TypeScript
+Prisma ORM
+MySQL
+Redis
+MongoDB
+JWT Authentication
+Passport
+bcrypt
+Swagger
+Class Validator
+Class Transformer
+Winston Logger
+Helmet
+CORS
+Rate Limiting
+Database
+
+Primary Database
+
+MySQL
+
+Secondary Database
+
+MongoDB
+
+Caching
+
+Redis
+
+DevOps
+
+Docker
+
+Docker Compose
+
+Git
+
+GitHub
+
+GitHub Actions
+
+Nginx
+
+Ubuntu Server
+
+PM2
+
+SSL
+
+Environment Variables
+
+IDE
+
+VS Code
+
+Professional Extensions
+
+ESLint
+
+Prettier
+
+GitLens
+
+Docker
+
+Prisma
+
+Tailwind
+
+Copilot
+
+Architecture
+
+Use Clean Architecture with feature-based modules.
+
+Frontend
+
+Pages
+
+Components
+
+Layouts
+
+Hooks
+
+Store
+
+Services
+
+Utils
+
+Types
+
+Assets
+
+Styles
+
+Backend
+
+Auth
+
+Users
+
+Projects
+
+Notes
+
+Files
+
+Tasks
+
+API Collections
+
+Prisma
+
+Redis
+
+Mongo
+
+Common
+
+Config
+
+Guards
+
+Interceptors
+
+Middlewares
+
+Filters
+
+DTOs
+
+Entities
+
+Every feature must have
+
+Controller
+
+Service
+
+DTO
+
+Validation
+
+Database Model
+
+Repository Pattern (through Prisma)
+
+Documentation
+
+Testing
+
+Authentication
+
+Register
+
+Login
+
+Logout
+
+Refresh Token
+
+Forgot Password
+
+Reset Password
+
+Email Verification
+
+JWT
+
+Access Token
+
+Refresh Token
+
+Role Based Access
+
+Admin
+
+Developer
+
+Guest
+
+Password Hashing
+
+Protected Routes
+
+OAuth Ready
+
+User Profile
+
+Avatar Upload
+
+Profile Picture
+
+Username
+
+Bio
+
+Location
+
+Website
+
+GitHub
+
+LinkedIn
+
+Skills
+
+Experience
+
+Profile Settings
+
+Account Settings
+
+Security Settings
+
+Delete Account
+
+Export Data
+
+Dashboard
+
+Professional Analytics Dashboard
+
+Cards
+
+Statistics
+
+Recent Activity
+
+Charts
+
+Performance Graphs
+
+Quick Actions
+
+Notifications
+
+Calendar
+
+Upcoming Tasks
+
+Storage Usage
+
+API Usage
+
+Developer Notes
+
+Create
+
+Edit
+
+Delete
+
+Archive
+
+Favorite
+
+Pin
+
+Tags
+
+Categories
+
+Markdown Support
+
+Rich Text
+
+Search
+
+Filter
+
+Sorting
+
+Autosave
+
+History
+
+Version Control
+
+Code Snippets
+
+Syntax Highlighting
+
+100+ Languages
+
+Copy Button
+
+Favorite
+
+Categories
+
+Tags
+
+Execution Ready
+
+Snippet Sharing
+
+Version History
+
+API Collection Manager
+
+Like Postman
+
+Collections
+
+Folders
+
+Requests
+
+Headers
+
+Parameters
+
+Authorization
+
+Environment Variables
+
+Response Viewer
+
+History
+
+Export
+
+Import
+
+Project Management
+
+Projects
+
+Tasks
+
+Kanban Board
+
+Priority
+
+Status
+
+Deadlines
+
+Comments
+
+Attachments
+
+Members
+
+Progress
+
+Activity Timeline
+
+File Manager
+
+Upload Files
+
+Images
+
+Documents
+
+Videos
+
+Compression
+
+Preview
+
+Download
+
+Delete
+
+Folders
+
+Storage Limits
+
+Drag and Drop
+
+Password Vault
+
+Encrypted Storage
+
+Credentials
+
+API Keys
+
+Database Credentials
+
+Tokens
+
+SSH Keys
+
+Notes
+
+Secure Encryption
+
+AI Ready Module
+
+Future Integration
+
+OpenAI
+
+Claude
+
+Gemini
+
+Local LLM
+
+Prompt Library
+
+AI Chat
+
+Code Generation
+
+Documentation Generator
+
+Bug Fix Assistant
+
+Search
+
+Global Search
+
+Instant Search
+
+Fuzzy Search
+
+Filters
+
+Recent Searches
+
+Search History
+
+Notifications
+
+In-App
+
+Email Ready
+
+Real Time
+
+Unread Count
+
+Toast Notifications
+
+Admin Panel
+
+Users
+
+Roles
+
+Analytics
+
+Storage
+
+Logs
+
+System Settings
+
+Feature Flags
+
+API Monitoring
+
+Security
+
+Helmet
+
+CORS
+
+CSRF
+
+XSS Protection
+
+Rate Limiting
+
+Input Validation
+
+Password Hashing
+
+JWT
+
+Environment Variables
+
+Secure Cookies
+
+Encryption
+
+Audit Logs
+
+Logging
+
+MongoDB Activity Logs
+
+Login Logs
+
+Security Logs
+
+API Logs
+
+Error Logs
+
+Performance Logs
+
+Redis
+
+Caching
+
+Session Storage
+
+Rate Limiting
+
+Temporary Tokens
+
+Performance
+
+API
+
+RESTful
+
+Swagger Documentation
+
+Versioning
+
+Validation
+
+Pagination
+
+Filtering
+
+Sorting
+
+Search
+
+Error Handling
+
+UI Design
+
+Modern SaaS
+
+Dark Theme
+
+Light Theme
+
+Responsive
+
+Mobile First
+
+Animations
+
+Glassmorphism
+
+Gradient UI
+
+Minimal
+
+Professional
+
+Accessibility
+
+Components
+
+Sidebar
+
+Navbar
+
+Footer
+
+Cards
+
+Tables
+
+Forms
+
+Dialogs
+
+Drawer
+
+Tabs
+
+Accordion
+
+Charts
+
+Graphs
+
+Loader
+
+Skeleton
+
+Empty States
+
+Error States
+
+Pagination
+
+Breadcrumb
+
+Search Bar
+
+Notifications
+
+Profile Menu
+
+Theme Switch
+
+Frontend Features
+
+Protected Routes
+
+Lazy Loading
+
+Code Splitting
+
+Reusable Components
+
+Hooks
+
+Global State
+
+API Layer
+
+Authentication
+
+Dark Mode
+
+Theme Persistence
+
+Offline Detection
+
+Loading States
+
+Error Boundaries
+
+Backend Features
+
+Dependency Injection
+
+Modular Architecture
+
+DTO Validation
+
+Exception Filters
+
+Interceptors
+
+Guards
+
+Custom Decorators
+
+Logging
+
+Caching
+
+Database Transactions
+
+Environment Configuration
+
+Database Models
+
+Users
+
+Roles
+
+Notes
+
+Tags
+
+Categories
+
+Projects
+
+Tasks
+
+Files
+
+Folders
+
+API Collections
+
+Requests
+
+Credentials
+
+Logs
+
+Notifications
+
+Settings
+
+Sessions
+
+Performance
+
+Lazy Loading
+
+Redis Cache
+
+Image Optimization
+
+Pagination
+
+Debouncing
+
+Virtual Lists
+
+Memoization
+
+Optimized Queries
+
+Indexes
+
+Connection Pooling
+
+Testing
+
+Unit Testing
+
+Integration Testing
+
+API Testing
+
+End-to-End Testing
+
+CI/CD
+
+GitHub Actions
+
+Automatic Build
+
+Lint
+
+Tests
+
+Docker Build
+
+Deployment
+
+Deployment
+
+Ubuntu VPS
+
+Docker Compose
+
+Nginx Reverse Proxy
+
+HTTPS
+
+Domain
+
+Cloudflare Ready
+
+PM2
+
+Automatic Restart
+
+Environment Variables
+
+Backups
+
+Documentation
+
+Professional README
+
+Architecture Diagram
+
+Database Diagram
+
+API Documentation
+
+Installation Guide
+
+Deployment Guide
+
+Contributing Guide
+
+License
+
+Coding Standards
+
+Use TypeScript Strict Mode.
+
+Follow SOLID Principles.
+
+Follow Clean Architecture.
+
+Use feature-based folders.
+
+Use reusable components.
+
+Never duplicate code.
+
+Use dependency injection.
+
+Use DTO validation.
+
+Use proper error handling.
+
+Use async/await.
+
+Write scalable code.
+
+Follow ESLint and Prettier.
+
+Use Git commits for every completed milestone.
+
+Goal
+
+The final result should feel like a commercial SaaS product that could realistically be sold to clients or launched as a startup. The codebase should demonstrate production-quality architecture, modern development practices, security, performance, maintainability, and excellent user experience.
