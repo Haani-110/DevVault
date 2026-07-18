@@ -32,23 +32,24 @@ export default function EditNoteModal({ note, onClose, onSave }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
       onClick={onClose}
     >
-      <div className="flex min-h-full items-center justify-center p-4 py-8">
       <div
-        className="card w-full max-w-2xl p-5"
+        className="card w-full max-w-2xl flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
         data-color-mode={theme}
       >
-        <div className="flex items-center justify-between mb-4">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 shrink-0">
           <h3 className="font-display font-semibold">Edit note</h3>
           <button onClick={onClose} aria-label="Close" className="text-text-muted hover:text-text">
             <FiX size={18} />
           </button>
         </div>
 
-        <div className="space-y-3">
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-3 min-h-0">
           <input
             className="input"
             placeholder="Note title"
@@ -66,21 +67,19 @@ export default function EditNoteModal({ note, onClose, onSave }: Props) {
             <MDEditor
               value={content}
               onChange={(v) => setContent(v ?? '')}
-              height={260}
+              height={220}
               preview="edit"
             />
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 mt-5">
-          <button className="btn-ghost" onClick={onClose}>
-            Cancel
-          </button>
+        {/* Sticky footer */}
+        <div className="flex justify-end gap-2 px-5 py-4 border-t border-border shrink-0">
+          <button className="btn-ghost" onClick={onClose}>Cancel</button>
           <button className="btn-primary" onClick={handleSubmit} disabled={!title.trim()}>
             Save changes
           </button>
         </div>
-      </div>
       </div>
     </div>
   );
