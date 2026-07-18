@@ -133,10 +133,11 @@ export default function ProjectsPage() {
       )}
 
       {showModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm" onClick={closeModal}>
-          <div className="flex min-h-full items-center justify-center p-4 py-8">
-          <div className="card w-full max-w-md p-6 space-y-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={closeModal}>
+          <div className="card w-full max-w-xl flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 shrink-0">
               <h2 className="font-display font-semibold text-lg">
                 {editingProject ? 'Edit project' : 'New project'}
               </h2>
@@ -145,7 +146,8 @@ export default function ProjectsPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Scrollable body */}
+            <form id="project-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 pb-4 space-y-4 min-h-0">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-text-muted uppercase tracking-wide">
                   Name <span className="text-red-400">*</span>
@@ -164,13 +166,15 @@ export default function ProjectsPage() {
                 <label className="text-xs font-medium text-text-muted uppercase tracking-wide">
                   Description
                 </label>
-                <input
+                <textarea
+                  rows={5}
                   value={form.description}
                   onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  placeholder="What's this project about?"
-                  className="input w-full"
-                  maxLength={300}
+                  placeholder="Describe the project goals, scope, tech stack, client details…"
+                  className="input w-full resize-none"
+                  maxLength={1000}
                 />
+                <p className="text-xs text-text-faint text-right">{form.description.length}/1000</p>
               </div>
 
               <div className="space-y-1.5">
@@ -193,21 +197,23 @@ export default function ProjectsPage() {
                   ))}
                 </div>
               </div>
-
-              <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={closeModal} className="btn-ghost">
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  disabled={!form.name.trim() || isPending}
-                >
-                  {isPending ? 'Saving…' : editingProject ? 'Save changes' : 'Create project'}
-                </button>
-              </div>
             </form>
-          </div>
+
+            {/* Sticky footer */}
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-border shrink-0">
+              <button type="button" onClick={closeModal} className="btn-ghost">
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="project-form"
+                className="btn-primary"
+                disabled={!form.name.trim() || isPending}
+              >
+                {isPending ? 'Saving…' : editingProject ? 'Save changes' : 'Create project'}
+              </button>
+            </div>
+
           </div>
         </div>
       )}
