@@ -35,7 +35,7 @@ export default function EditNoteModal({ note, onClose, onSave }: Props) {
       className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm"
       onClick={onClose}
     >
-      <div className="flex min-h-full items-center justify-center p-4 pt-16 pb-8">
+      <div className="flex min-h-full items-center justify-center p-4 py-8">
       <div
         className="card w-full max-w-2xl p-5"
         onClick={(e) => e.stopPropagation()}
