@@ -1,9 +1,9 @@
-import React from 'react';
 import { FiFileText, FiCheckSquare, FiFolder, FiCode, FiLock, FiActivity } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
+import type { IconType } from 'react-icons';
 import type { RecentActivityItem } from '@/services/dashboardService';
 
-const icons: Record<string, React.ElementType> = {
+const icons: Record<string, IconType> = {
   note: FiFileText,
   task: FiCheckSquare,
   project: FiFolder,
@@ -42,7 +42,7 @@ export default function ActivityFeed({ items }: { items: RecentActivityItem[] })
       ) : (
         <ul className="space-y-3">
           {items.map((item) => {
-            const Icon = icons[item.type] ?? FiActivity;
+            const Icon: IconType = icons[item.type] ?? FiActivity;
             const colorClass = iconColors[item.type] ?? 'text-text-muted bg-surface-hover';
             return (
               <li key={item.id} className="flex items-start gap-3">

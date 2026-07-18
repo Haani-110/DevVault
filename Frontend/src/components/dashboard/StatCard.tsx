@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { IconType } from 'react-icons';
 import clsx from 'clsx';
+import Tilt3D from '@/components/ui/Tilt3D';
 
 interface Props {
   label: string;
@@ -50,11 +51,13 @@ export default function StatCard({ label, value, sub, icon: Icon, to, color = 'b
 
   if (to) {
     return (
-      <Link to={to} className="group block h-full">
-        {inner}
-      </Link>
+      <Tilt3D strength={8}>
+        <Link to={to} className="group block h-full">
+          {inner}
+        </Link>
+      </Tilt3D>
     );
   }
 
-  return inner;
+  return <Tilt3D strength={8}>{inner}</Tilt3D>;
 }
