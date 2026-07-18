@@ -63,6 +63,7 @@ export class AuthService {
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
+    if (!user.passwordHash) throw new UnauthorizedException('This account uses social login. Please sign in with Google or GitHub.');
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
 
@@ -120,10 +121,79 @@ export class AuthService {
     return { message: 'If that email exists, a reset link is on its way.' };
   }
 
+  async findOrCreateOAuthUser(profile: {
+    provider: string;
+    providerUid: string;
+    email: string;
+    name: string;
+    avatarUrl?: string;
+    accessToken?: string;
+    refreshToken?: string;
+  }) {
+    // 1. Check if this exact OAuth account already exists
+    const existingOAuth = await this.prisma.oAuthAccount.findUnique({
+      where: {
+        provider_providerUid: {
+          provider: profile.provider,
+          providerUid: profile.providerUid,
+        },
+      },
+      include: { user: true },
+    });
+
+    if (existingOAuth) {
+      // Refresh stored tokens
+      await this.prisma.oAuthAccount.update({
+        where: { id: existingOAuth.id },
+        data: { accessToken: profile.accessToken, refreshToken: profile.refreshToken },
+      });
+      const u = existingOAuth.user;
+      return this.generateTokens(u.id, u.email, u.role);
+    }
+
+    // 2. Check if a user with this email already exists (email+password account)
+    let user = await this.usersService.findByEmail(profile.email);
+
+    if (!user) {
+      // 3. New user — derive a unique username
+      const base = profile.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '')
+        .slice(0, 20) || profile.email.split('@')[0].replace(/[^a-z0-9]/g, '').slice(0, 20) || 'user';
+
+      let username = base;
+      let attempt = 0;
+      while (await this.usersService.findByUsername(username)) {
+        attempt++;
+        username = `${base}${attempt}`;
+      }
+
+      user = await this.usersService.createOAuthUser({
+        email: profile.email,
+        username,
+        avatarUrl: profile.avatarUrl,
+      });
+    }
+
+    // 4. Link the OAuth account to this user
+    await this.prisma.oAuthAccount.create({
+      data: {
+        userId: user.id,
+        provider: profile.provider,
+        providerUid: profile.providerUid,
+        accessToken: profile.accessToken,
+        refreshToken: profile.refreshToken,
+      },
+    });
+
+    return this.generateTokens(user.id, user.email, user.role);
+  }
+
   async changePassword(userId: string, dto: ChangePasswordDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException();
 
+    if (!user.passwordHash) throw new BadRequestException('This account uses social login and has no password to change.');
     const valid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
     if (!valid) throw new BadRequestException('Current password is incorrect');
 

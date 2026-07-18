@@ -45,6 +45,10 @@ export class UsersService {
     return this.prisma.user.create({ data });
   }
 
+  createOAuthUser(data: { email: string; username: string; avatarUrl?: string }) {
+    return this.prisma.user.create({ data });
+  }
+
   async updateProfile(userId: string, dto: UpdateProfileDto) {
     if (dto.username) {
       const existing = await this.prisma.user.findUnique({ where: { username: dto.username } });

@@ -31,8 +31,8 @@ model User {
   id           String     @id @default(cuid())
   email        String     @unique
   username     String     @unique
-  passwordHash String
-  avatarUrl    String?
+  passwordHash  String?
+  avatarUrl     String?
   bio          String?
   location     String?
   website      String?
@@ -46,6 +46,7 @@ model User {
   tasks          Task[]
   snippets       Snippet[]
   passwordResets PasswordReset[]
+  oauthAccounts  OAuthAccount[]
 }
 
 model Note {
@@ -88,6 +89,20 @@ model Task {
   assignee    String?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+}
+
+model OAuthAccount {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider     String
+  providerUid  String
+  accessToken  String?
+  refreshToken String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([provider, providerUid])
 }
 
 model PasswordReset {

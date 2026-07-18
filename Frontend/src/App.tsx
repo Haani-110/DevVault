@@ -7,6 +7,7 @@ import Login from '@/pages/auth/Login';
 import Register from '@/pages/auth/Register';
 import ForgotPassword from '@/pages/auth/ForgotPassword';
 import ResetPassword from '@/pages/auth/ResetPassword';
+import OAuthCallback from '@/pages/auth/OAuthCallback';
 import Dashboard from '@/pages/dashboard/Dashboard';
 import Settings from '@/pages/dashboard/Settings';
 import NotesPage from '@/pages/notes/NotesPage';
@@ -42,6 +43,7 @@ export default function App() {
         </Route>
       </Route>
 
+      <Route path="/auth/callback" element={<OAuthCallback />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
