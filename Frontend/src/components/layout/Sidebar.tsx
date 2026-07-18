@@ -9,8 +9,8 @@ const navItems = [
   { to: '/notes', label: 'Notes', icon: FiFileText },
   { to: '/snippets', label: 'Snippets', icon: FiCode },
   { to: '/projects', label: 'Projects', icon: FiFolder },
-  { to: '/collections', label: 'API Collections', icon: FiSend, soon: true },
-  { to: '/vault', label: 'Password Vault', icon: FiLock, soon: true },
+  { to: '/collections', label: 'API Collections', icon: FiSend },
+  { to: '/vault', label: 'Password Vault', icon: FiLock },
 ];
 
 export default function Sidebar() {
