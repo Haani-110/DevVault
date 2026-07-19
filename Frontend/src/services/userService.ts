@@ -8,6 +8,7 @@ export interface UpdateProfilePayload {
   website?: string;
   githubUrl?: string;
   linkedinUrl?: string;
+  avatarUrl?: string;
 }
 
 export const userService = {

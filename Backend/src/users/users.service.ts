@@ -8,6 +8,7 @@ export interface UpdateProfileDto {
   website?: string;
   githubUrl?: string;
   linkedinUrl?: string;
+  avatarUrl?: string;
 }
 
 @Injectable()
@@ -65,6 +66,7 @@ export class UsersService {
         ...(dto.website !== undefined && { website: dto.website }),
         ...(dto.githubUrl !== undefined && { githubUrl: dto.githubUrl }),
         ...(dto.linkedinUrl !== undefined && { linkedinUrl: dto.linkedinUrl }),
+        ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl }),
       },
       select: {
         id: true,

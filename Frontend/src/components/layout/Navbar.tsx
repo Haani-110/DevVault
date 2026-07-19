@@ -159,8 +159,10 @@ export default function Navbar() {
             onClick={() => setMenuOpen((o) => !o)}
             className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-surface-hover transition-colors"
           >
-            <div className="w-7 h-7 rounded-full bg-brass-400/15 border border-brass-400/40 flex items-center justify-center text-brass-400 text-xs font-bold font-mono">
-              {initials}
+            <div className="w-7 h-7 rounded-full bg-brass-400/15 border border-brass-400/40 flex items-center justify-center text-brass-400 text-xs font-bold font-mono overflow-hidden">
+              {user?.avatarUrl
+                ? <img src={user.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                : initials}
             </div>
             <span className="text-sm text-text-muted hidden sm:block max-w-[120px] truncate">
               {user?.username ?? 'Developer'}

@@ -44,6 +44,10 @@ class UpdateProfileDto {
   @IsOptional()
   @MaxLength(200)
   linkedinUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  avatarUrl?: string;
 }
 
 interface AuthUser {

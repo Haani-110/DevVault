@@ -95,7 +95,7 @@ export default function ProjectsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="sticky top-14 z-[5] bg-ink -mx-6 px-6 pt-2 pb-4 flex items-center justify-between gap-4 flex-wrap border-b border-border/50">
         <div>
           <h1 className="font-display text-2xl font-semibold">Projects</h1>
           <p className="text-sm text-text-muted mt-1">
