@@ -7,11 +7,12 @@ import type { OAuthProfile } from './google.strategy';
 export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
   constructor() {
     super({
-      clientID: process.env.GITHUB_CLIENT_ID ?? 'GITHUB_CLIENT_ID_NOT_SET',
-      clientSecret: process.env.GITHUB_CLIENT_SECRET ?? 'GITHUB_CLIENT_SECRET_NOT_SET',
-      callbackURL:
+      clientID: (process.env.GITHUB_CLIENT_ID ?? 'GITHUB_CLIENT_ID_NOT_SET').trim(),
+      clientSecret: (process.env.GITHUB_CLIENT_SECRET ?? 'GITHUB_CLIENT_SECRET_NOT_SET').trim(),
+      callbackURL: (
         process.env.GITHUB_CALLBACK_URL ??
-        'http://localhost:4000/api/v1/auth/github/callback',
+        'http://localhost:4000/api/v1/auth/github/callback'
+      ).trim(),
       scope: ['user:email'],
     });
   }

@@ -16,11 +16,12 @@ export interface OAuthProfile {
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor() {
     super({
-      clientID: process.env.GOOGLE_CLIENT_ID ?? 'GOOGLE_CLIENT_ID_NOT_SET',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? 'GOOGLE_CLIENT_SECRET_NOT_SET',
-      callbackURL:
+      clientID: (process.env.GOOGLE_CLIENT_ID ?? 'GOOGLE_CLIENT_ID_NOT_SET').trim(),
+      clientSecret: (process.env.GOOGLE_CLIENT_SECRET ?? 'GOOGLE_CLIENT_SECRET_NOT_SET').trim(),
+      callbackURL: (
         process.env.GOOGLE_CALLBACK_URL ??
-        'http://localhost:4000/api/v1/auth/google/callback',
+        'http://localhost:4000/api/v1/auth/google/callback'
+      ).trim(),
       scope: ['email', 'profile'],
     });
   }
