@@ -137,14 +137,14 @@ export default function Login() {
       {/* OAuth buttons */}
       <div className="flex gap-3 mt-4">
         <a
-          href="/api/v1/auth/google"
+          href={`${import.meta.env.VITE_API_BASE_URL ?? ''}/api/v1/auth/google`}
           className="flex-1 btn-ghost flex items-center justify-center gap-2 text-sm py-2"
         >
           <GoogleIcon />
           Google
         </a>
         <a
-          href="/api/v1/auth/github"
+          href={`${import.meta.env.VITE_API_BASE_URL ?? ''}/api/v1/auth/github`}
           className="flex-1 btn-ghost flex items-center justify-center gap-2 text-sm py-2"
         >
           <GitHubIcon />
