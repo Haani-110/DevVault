@@ -61,3 +61,6 @@ externalPort = 3001
 
 [userenv.shared]
 FROM_EMAIL = "72hadi725@gmail.com"
+FRONTEND_URL = "http://localhost:5000"
+GITHUB_CALLBACK_URL = "http://localhost:4000/api/v1/auth/github/callback"
+GOOGLE_CALLBACK_URL = "http://localhost:4000/api/v1/auth/google/callback"
