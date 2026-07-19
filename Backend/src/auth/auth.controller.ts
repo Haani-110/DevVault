@@ -121,10 +121,7 @@ export class AuthController {
 
   private buildCallbackUrl(tokens: { accessToken: string; refreshToken: string }): string {
     const base =
-      process.env.FRONTEND_URL ??
-      (process.env.REPLIT_DEV_DOMAIN
-        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-        : 'http://localhost:5000');
+      process.env.FRONTEND_URL || "http://localhost:5173"
     return `${base}/auth/callback?accessToken=${tokens.accessToken}&refreshToken=${tokens.refreshToken}`;
   }
 }
