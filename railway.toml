@@ -4,6 +4,6 @@ buildCommand = "cd Backend && npm install && npm run build"
 
 [deploy]
 startCommand = "cd Backend && npm run start:prod"
-healthcheckPath = "/api/v1/auth/login"
+healthcheckPath = "/api/docs"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
