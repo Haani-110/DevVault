@@ -4,7 +4,12 @@ import { FiGrid, FiFileText, FiFolder, FiCode, FiSend, FiLock, FiSettings } from
 import VaultDial from '@/components/ui/VaultDial';
 import Badge from '@/components/ui/Badge';
 
-const navItems = [
+const navItems: {
+  to: string;
+  label: string;
+  icon: any;
+  soon?: boolean;
+}[] = [
   { to: '/dashboard', label: 'Dashboard', icon: FiGrid },
   { to: '/notes', label: 'Notes', icon: FiFileText },
   { to: '/snippets', label: 'Snippets', icon: FiCode },
