@@ -1,20 +1,111 @@
 # DevVault — Frontend
 
-The frontend for DevVault, an AI-ready developer productivity platform (notes,
-snippets, projects, API collections, credentials, files — one dashboard).
-
-This is phase 1 of the full spec: **Auth + Dashboard shell + Notes + Projects/Tasks (Kanban)**,
-built as a real, runnable app rather than a mockup. Every screen reads/writes through a
-`services/*Service.ts` layer that currently talks to in-memory mock data — swap
-`USE_MOCK = false` in each service once the NestJS API is live, and the UI needs no changes.
+React 19 + Vite + TypeScript frontend for DevVault, deployed on Vercel. Talks
+to the NestJS backend entirely over HTTP — there is no server-side rendering
+and no build-time coupling to the backend beyond the API base URL.
 
 ## Stack
 
-React 19 · Vite · TypeScript (strict) · Tailwind CSS · React Router · Zustand ·
-TanStack Query · Axios · React Hook Form + Zod · Framer Motion (installed, ready
-for page-transition work) · react-icons · Chart.js/react-chartjs-2 (installed) ·
-Recharts · @monaco-editor/react (installed, ready for the Snippets module) ·
-@uiw/react-md-editor · react-hot-toast
+React 19 · Vite · TypeScript (strict) · Tailwind CSS · React Router ·
+Zustand · TanStack Query · Axios · React Hook Form + Zod · react-icons ·
+Recharts · `@monaco-editor/react` (code editing, for Snippets) ·
+`@uiw/react-md-editor` (Notes) · react-hot-toast
+
+## Concept
+
+The app is a standard SPA behind client-side routing (`react-router-dom`,
+`BrowserRouter`). A few things about how it's wired are worth understanding
+before making changes:
+
+### API access is centralized in `lib/axios.ts`
+
+Every request goes through one configured Axios instance:
+
+```ts
+const baseURL = import.meta.env.VITE_API_BASE_URL
+  ? `${import.meta.env.VITE_API_BASE_URL}/api/v1`
+  : '/api/v1';
+```
+
+- In **local dev**, `VITE_API_BASE_URL` is usually left unset, so requests
+  go to the relative path `/api/v1/...`, which Vite's dev server proxies to
+  `localhost:4000` (see `vite.config.ts`).
+- In **production (Vercel)**, there is no proxy — Vercel only serves static
+  files. `VITE_API_BASE_URL` must be set to the real backend URL (the
+  Railway deployment), or every API call will silently 404 against the
+  frontend's own domain instead of reaching the backend.
+- This same instance also handles token refresh: a 401 response triggers a
+  single in-flight call to `/auth/refresh`, queues any other requests that
+  hit 401 while that's happening, then retries them all once a new access
+  token comes back.
+
+**Anything that links directly to a backend route outside of this Axios
+instance — e.g. the Google/GitHub OAuth buttons, which are plain `<a href>`
+tags rather than API calls — needs to build its URL the same way**
+(`` `${import.meta.env.VITE_API_BASE_URL ?? ''}/api/v1/auth/google` ``).
+A hardcoded relative `href="/api/v1/auth/google"` will work locally (proxy
+covers it) and then 404 in production, since Vercel has no `/api/v1/*`
+route of its own. This bit the project once already — see `Login.tsx` /
+`Register.tsx` for the corrected pattern if you're adding another OAuth-style
+external link.
+
+### Client-side routing needs a Vercel rewrite
+
+Because routing is handled entirely by React Router in the browser, a
+direct hit to something like `/reset-password?token=...` (e.g. from an email
+link) isn't a real file on the server. `Frontend/vercel.json` tells Vercel to
+serve `index.html` for any path so React Router can take over:
+
+```json
+{
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
+```
+
+Without this file, any page that isn't `/` 404s the moment someone
+navigates to it directly instead of clicking through the app.
+
+### State
+
+- `store/authStore.ts` (Zustand, persisted) — user, access/refresh tokens,
+  `isAuthenticated`.
+- `store/themeStore.ts` (Zustand, persisted) — dark/light theme, respects
+  `prefers-reduced-motion`.
+- Server state (notes, snippets, projects, tasks, dashboard stats) goes
+  through TanStack Query via the `services/*Service.ts` layer — each service
+  wraps the relevant backend endpoints with typed functions the pages call.
+
+## What's implemented (backed by the real API)
+
+- **Auth** — Login, Register, Forgot/Reset password, Google/GitHub OAuth,
+  protected routes, persisted session, automatic token refresh.
+- **Dashboard** — stat cards and recent activity pulled from
+  `/dashboard/stats`.
+- **Notes** — list, search/filter, tags, pin/favorite, archive, markdown
+  editor.
+- **Snippets** — list, create/edit with Monaco editor, language tagging,
+  favorite.
+- **Projects** — project grid, create/edit, drill into a project for a
+  drag-and-drop Kanban board (Backlog → In Progress → In Review → Done).
+- **Settings** — profile form, danger zone (account deletion).
+- **Theme** — real dark/light toggle backed by CSS variables.
+
+## What's still a placeholder
+
+**API Collections** and **Password Vault** render informational "coming
+soon" screens (see `pages/collections/CollectionsPage.tsx` and
+`pages/vault/PasswordVaultPage.tsx`) describing the intended feature set,
+but have no backend behind them yet.
+
+## Coming next: AI-assisted GitHub import
+
+A new flow is being built where a user picks one of their GitHub
+repositories (using the OAuth connection they already have), and the backend
+uses the Claude API to generate a starter set of Notes and Snippets from that
+repo's source, grouped under a new Project. On the frontend this will mean:
+a repo picker (calling a new `import` service), an import-progress state, and
+a redirect into the newly created Project once it's done. Not yet present in
+`services/` or `pages/` — this section will be updated once that lands.
 
 ## Getting started
 
@@ -24,56 +115,23 @@ cp .env.example .env
 npm run dev
 ```
 
-Open http://localhost:5173. Sign in with any email + a 6+ character password —
-auth is mocked, so any values succeed. The Vite dev server proxies `/api/*` to
-`http://localhost:4000` (see `vite.config.ts`) for when the NestJS backend is ready.
-
-> **Note on this delivery:** package installation requires npm registry access,
-> which isn't available in the environment that generated this code, so the
-> install/build hasn't been run end-to-end here. The source was written and
-> reviewed carefully (strict TypeScript types, no stray `React.*` namespace
-> references, consistent imports), but please run `npm install && npm run build`
-> on your machine as a first step and report back anything that doesn't compile.
-
-## What's implemented
-
-- **Auth UI** — Login, Register, Forgot password, protected routes, persisted
-  session via Zustand, Axios interceptor with access/refresh token flow wired
-  (points at `/api/v1/auth/*` once `USE_MOCK` is flipped off).
-- **Dashboard** — stat cards, weekly output chart (Recharts), storage/API usage
-  gauges, recent activity feed.
-- **Notes** — list, search/filter, tags, pin/favorite, markdown editor modal for
-  creating notes, delete.
-- **Projects** — project grid with progress bars, drill into a project for a
-  drag-and-drop Kanban board (Backlog → In Progress → In Review → Done).
-- **Settings** — profile form, danger zone stub.
-- **Theme** — real dark/light toggle (CSS variables, not just a class with no
-  effect), persisted, respects `prefers-reduced-motion`.
-- **Design system** — token-based Tailwind config (`ink`/`surface`/`brass`/`mint`
-  palette), a signature "vault dial" mark used as the logo and as a subtle tick
-  pattern behind stat numbers, `JetBrains Mono` for all numeric/stat displays.
-
-## What's stubbed for later phases
-
-Snippets, API Collections, Password Vault, File Manager, Admin Panel, and
-real-time notifications appear in the sidebar as "Soon" and aren't built yet —
-building them against the same `services/` pattern is the next step once the
-backend modules exist. Monaco Editor and Chart.js are already installed for
-Snippets and Admin Panel analytics, respectively, since those modules will need
-them.
-
-## Project structure
-
+Set `Frontend/.env`:
+```env
+VITE_API_BASE_URL=http://localhost:4000
 ```
-src/
-  components/   ui primitives, layout, and feature-specific components
-  hooks/        useAuth, useTheme
-  layouts/      AuthLayout, DashboardLayout
-  lib/          axios instance + interceptors
-  pages/        route-level screens
-  routes/       ProtectedRoute
-  services/     API layer (mock now, real endpoints later — one flag per file)
-  store/        Zustand stores (auth, theme)
-  styles/       Tailwind layers + design tokens
-  types/        shared TS interfaces
-```
+
+Open the printed local URL (Vite will show it, typically
+`http://localhost:5173` or `:5000` depending on `vite.config.ts`). The dev
+server proxies `/api/*` to `http://localhost:4000`, so the backend needs to
+be running separately (see `Backend/README.md`).
+
+## Deploying to Vercel
+
+- **Root Directory** must be set to `Frontend` in the Vercel project
+  settings (since the repo also contains `Backend/` at the same level).
+- Set `VITE_API_BASE_URL` in **Settings → Environment Variables** for both
+  **Production and Preview** environments — it's baked in at build time, so
+  changing it always requires a redeploy, and Preview deployments won't pick
+  up a Production-only value.
+- `vercel.json` (see above) must be present for client-side routes to work
+  on direct navigation instead of 404ing.
