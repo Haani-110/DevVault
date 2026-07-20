@@ -96,22 +96,22 @@ export default function NotesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="sticky top-14 z-[5] bg-ink -mx-6 px-6 pt-2 pb-4 flex items-center justify-between gap-4 flex-wrap border-b border-border/50">
+      <div className="sticky top-14 z-[5] bg-ink -mx-4 px-4 sm:-mx-6 sm:px-6 pt-2 pb-4 flex items-center justify-between gap-4 flex-wrap border-b border-border/50">
         <div>
           <h1 className="font-display text-2xl font-semibold">Notes</h1>
           <p className="text-sm text-text-muted mt-1">
             Markdown notes with tags, pinning and search.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap w-full sm:w-auto">
           <input
-            className="input w-56"
+            className="input w-full sm:w-56"
             placeholder="Search notes…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
           {activeTab !== 'archived' && (
-            <button className="btn-primary" onClick={() => setShowModal(true)}>
+            <button className="btn-primary w-full sm:w-auto justify-center" onClick={() => setShowModal(true)}>
               <FiPlus size={15} /> New note
             </button>
           )}

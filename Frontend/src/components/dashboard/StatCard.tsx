@@ -41,7 +41,7 @@ export default function StatCard({ label, value, sub, icon: Icon, to, color = 'b
         </div>
 
         {to && (
-          <div className={clsx('text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1', c.text)}>
+          <div className={clsx('text-xs font-medium opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center gap-1', c.text)}>
             View all →
           </div>
         )}

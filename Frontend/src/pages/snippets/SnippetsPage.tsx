@@ -68,23 +68,23 @@ export default function SnippetsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="sticky top-14 z-[5] bg-ink -mx-6 px-6 pt-2 pb-4 flex items-center justify-between gap-4 flex-wrap border-b border-border/50">
+      <div className="sticky top-14 z-[5] bg-ink -mx-4 px-4 sm:-mx-6 sm:px-6 pt-2 pb-4 flex items-center justify-between gap-4 flex-wrap border-b border-border/50">
         <div>
           <h1 className="font-display text-2xl font-semibold">Snippets</h1>
           <p className="text-sm text-text-muted mt-1">
             Save and reuse code snippets across languages.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap w-full sm:w-auto">
           <input
-            className="input w-48"
+            className="input w-full sm:w-48"
             placeholder="Search snippets…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
           {languages.length > 0 && (
             <select
-              className="input w-36"
+              className="input w-full sm:w-36"
               value={langFilter}
               onChange={(e) => setLangFilter(e.target.value)}
             >
@@ -94,7 +94,7 @@ export default function SnippetsPage() {
               ))}
             </select>
           )}
-          <button className="btn-primary" onClick={() => { setEditingSnippet(null); setShowModal(true); }}>
+          <button className="btn-primary w-full sm:w-auto justify-center" onClick={() => { setEditingSnippet(null); setShowModal(true); }}>
             <FiPlus size={15} /> New snippet
           </button>
         </div>

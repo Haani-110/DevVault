@@ -1,7 +1,7 @@
 import type { DragEvent } from 'react';
 import { FiTrash2 } from 'react-icons/fi';
 import Badge from '@/components/ui/Badge';
-import type { Task } from '@/types';
+import type { Task, TaskStatus } from '@/types';
 
 const priorityTone = {
   LOW: 'muted',
@@ -10,13 +10,21 @@ const priorityTone = {
   URGENT: 'danger',
 } as const;
 
+const statusOptions: { value: TaskStatus; label: string }[] = [
+  { value: 'BACKLOG', label: 'Backlog' },
+  { value: 'IN_PROGRESS', label: 'In progress' },
+  { value: 'IN_REVIEW', label: 'In review' },
+  { value: 'DONE', label: 'Done' },
+];
+
 interface Props {
   task: Task;
   onDragStart: (e: DragEvent, taskId: string) => void;
   onDelete?: (taskId: string) => void;
+  onMove?: (taskId: string, status: TaskStatus) => void;
 }
 
-export default function TaskCard({ task, onDragStart, onDelete }: Props) {
+export default function TaskCard({ task, onDragStart, onDelete, onMove }: Props) {
   return (
     <div
       draggable
@@ -32,7 +40,7 @@ export default function TaskCard({ task, onDragStart, onDelete }: Props) {
               onDelete(task.id);
             }}
             aria-label="Delete task"
-            className="opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded text-text-muted hover:text-danger hover:bg-surface-hover transition-all shrink-0"
+            className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded text-text-muted hover:text-danger hover:bg-surface-hover transition-all shrink-0"
           >
             <FiTrash2 size={12} />
           </button>
@@ -43,7 +51,7 @@ export default function TaskCard({ task, onDragStart, onDelete }: Props) {
           {task.description}
         </p>
       )}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 mb-2">
         <Badge tone={priorityTone[task.priority]}>{task.priority}</Badge>
         {task.dueDate && (
           <span className="text-[11px] font-mono text-text-faint">
@@ -51,6 +59,27 @@ export default function TaskCard({ task, onDragStart, onDelete }: Props) {
           </span>
         )}
       </div>
+      {/* Touch-friendly move control — dragging cards between columns doesn't
+          work on touchscreens (no native HTML5 drag support), so this dropdown
+          is the way mobile/tablet users actually change a task's status. */}
+      {onMove && (
+        <select
+          value={task.status}
+          onChange={(e) => {
+            e.stopPropagation();
+            onMove(task.id, e.target.value as TaskStatus);
+          }}
+          onClick={(e) => e.stopPropagation()}
+          aria-label="Move task to a different column"
+          className="w-full text-[11px] py-1 px-1.5 rounded border border-border bg-surface-raised/60 text-text-muted focus:text-text focus:bg-surface-raised transition-colors"
+        >
+          {statusOptions.map((s) => (
+            <option key={s.value} value={s.value}>
+              Move to: {s.label}
+            </option>
+          ))}
+        </select>
+      )}
     </div>
   );
 }

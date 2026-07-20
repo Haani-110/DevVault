@@ -31,9 +31,12 @@ html.light {
 @layer base {
   html {
     @apply scroll-smooth;
+    overflow-x: hidden;
   }
   body {
     @apply transition-colors duration-200;
+    overflow-x: hidden;
+    width: 100%;
   }
   ::selection {
     @apply bg-brass-400/30 text-text;

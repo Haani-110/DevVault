@@ -40,7 +40,7 @@ api.interceptors.response.use(
       isRefreshing = true;
       try {
         const refreshToken = useAuthStore.getState().refreshToken;
-        const { data } = await axios.post('/api/v1/auth/refresh', { refreshToken });
+        const { data } = await api.post('/auth/refresh', { refreshToken });
         useAuthStore.getState().setTokens(data.accessToken, data.refreshToken);
         queue.forEach((cb) => cb());
         queue = [];

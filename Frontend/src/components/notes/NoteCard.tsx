@@ -55,7 +55,7 @@ export default function NoteCard({
       <div className="card p-4 flex flex-col gap-3 hover:border-brass-400/30 transition-colors group h-full">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-medium text-sm text-text line-clamp-1">{note.title}</h3>
-          <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
             <button
               onClick={() => onTogglePin(note.id)}
               aria-label={note.isPinned ? 'Unpin note' : 'Pin note'}

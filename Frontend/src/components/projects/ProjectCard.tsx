@@ -24,7 +24,7 @@ export default function ProjectCard({ project, onEdit, onDelete }: Props) {
             </div>
             <p className="text-xs text-text-muted line-clamp-2">{project.description}</p>
           </Link>
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
             {onEdit && (
               <button
                 onClick={(e) => { e.preventDefault(); onEdit(project); }}

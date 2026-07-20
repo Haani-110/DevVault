@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiBell, FiSearch, FiLogOut, FiSettings, FiCheck } from 'react-icons/fi';
+import { FiBell, FiSearch, FiLogOut, FiSettings, FiCheck, FiMenu } from 'react-icons/fi';
 import ThemeToggle from './ThemeToggle';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -29,7 +29,7 @@ const SAMPLE_NOTIFICATIONS: Notification[] = [
   },
 ];
 
-export default function Navbar() {
+export default function Navbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -59,18 +59,29 @@ export default function Navbar() {
   const initials = user?.username?.slice(0, 2).toUpperCase() ?? 'DV';
 
   return (
-    <header className="h-14 border-b border-border bg-ink/90 backdrop-blur-sm sticky top-0 z-10 flex items-center justify-between px-5 gap-4">
-      {/* Search */}
-      <div className="relative flex-1 max-w-xs">
-        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-text-faint" size={14} />
-        <input
-          className="input pl-8 py-1.5 text-sm bg-surface-raised/60 border-border/60 focus:bg-surface-raised"
-          placeholder="Search…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={handleSearch}
-          aria-label="Global search"
-        />
+    <header className="h-14 border-b border-border bg-ink/90 backdrop-blur-sm sticky top-0 z-10 flex items-center justify-between px-3 sm:px-5 gap-2 sm:gap-4">
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        {/* Mobile menu button — opens the Sidebar drawer, hidden on desktop where the sidebar is always visible */}
+        <button
+          onClick={onMenuClick}
+          aria-label="Open menu"
+          className="lg:hidden w-9 h-9 shrink-0 flex items-center justify-center rounded text-text-muted hover:text-text hover:bg-surface-hover transition-colors"
+        >
+          <FiMenu size={18} />
+        </button>
+
+        {/* Search */}
+        <div className="relative flex-1 min-w-0 max-w-[160px] sm:max-w-xs">
+          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-text-faint" size={14} />
+          <input
+            className="input pl-8 py-1.5 text-sm bg-surface-raised/60 border-border/60 focus:bg-surface-raised w-full"
+            placeholder="Search…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={handleSearch}
+            aria-label="Global search"
+          />
+        </div>
       </div>
 
       <div className="flex items-center gap-2">
@@ -90,7 +101,7 @@ export default function Navbar() {
           {notifOpen && (
             <>
               <div className="fixed inset-0 z-20" onClick={() => setNotifOpen(false)} />
-              <div className="absolute right-0 top-full mt-2 w-80 card shadow-xl z-30 overflow-hidden">
+              <div className="absolute right-0 top-full mt-2 w-[calc(100vw-1.5rem)] max-w-80 card shadow-xl z-30 overflow-hidden">
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                   <div className="flex items-center gap-2">

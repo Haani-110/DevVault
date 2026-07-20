@@ -190,7 +190,7 @@ export default function Settings() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">Username</label>
             <input
@@ -219,7 +219,7 @@ export default function Settings() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">Location</label>
             <input
@@ -243,7 +243,7 @@ export default function Settings() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">GitHub URL</label>
             <input
@@ -376,7 +376,7 @@ export default function Settings() {
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-danger font-medium">Are you absolutely sure?</p>
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-wrap">
               <button className="btn-danger" onClick={handleDeleteAccount} disabled={deleting}>
                 {deleting ? 'Deleting…' : 'Yes, delete everything'}
               </button>

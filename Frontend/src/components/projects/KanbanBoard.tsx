@@ -90,6 +90,7 @@ export default function KanbanBoard({ tasks, onMove, onCreateTask, onDeleteTask 
                   task={task}
                   onDragStart={handleDragStart}
                   onDelete={onDeleteTask}
+                  onMove={onMove}
                 />
               ))}
             </div>
