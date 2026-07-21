@@ -24,19 +24,26 @@ export interface AiRepoAnalysis {
   snippets: AiSnippetResult[];
 }
 
-// Groq's free tier requires no billing/card setup at all, unlike Gemini's
-// current quota policy. llama-3.3-70b-versatile gives GPT-4o-class quality
-// for this "read files, summarize, extract" task. Note: Groq's free-tier
-// TPM (tokens-per-minute) ceiling is tighter than Gemini's, so very large
-// file batches may need to be chunked by the caller — see MAX_OUTPUT_TOKENS.
 const MODEL = 'llama-3.3-70b-versatile';
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const MAX_OUTPUT_TOKENS = 3000;
+
+const TPM_LIMIT = 10_000;
+const CHARS_PER_TOKEN_ESTIMATE = 4;
+const RATE_WINDOW_MS = 60_000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
   private readonly apiKey: string | null;
+
+  private queue: Promise<void> = Promise.resolve();
+
+  private usageLog: { time: number; tokens: number }[] = [];
 
   constructor() {
     const key = process.env.GROQ_API_KEY;
@@ -52,11 +59,6 @@ export class AiService {
     return this.apiKey !== null;
   }
 
-  /**
-   * Sends a batch of source files to Groq (Llama 3.3 70B) and asks it to
-   * return structured notes (summaries/explanations) and snippets (reusable
-   * code blocks) as JSON.
-   */
   async analyzeRepoFiles(
     repoName: string,
     files: AnalyzedFile[],
@@ -93,6 +95,50 @@ Rules:
 - Keep "tags" short (1-4 words each), lowercase, relevant to topic/technology.
 - Do not invent information that isn't supported by the provided file contents.`;
 
+    const estimatedTokens =
+      Math.ceil((systemPrompt.length + fileBlocks.length) / CHARS_PER_TOKEN_ESTIMATE) +
+      MAX_OUTPUT_TOKENS;
+
+    return this.enqueue(() => this.callGroq(systemPrompt, fileBlocks, estimatedTokens));
+  }
+
+  private enqueue<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.queue.then(task);
+    this.queue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  private async waitForBudget(estimatedTokens: number): Promise<void> {
+    for (;;) {
+      const now = Date.now();
+      this.usageLog = this.usageLog.filter((e) => now - e.time < RATE_WINDOW_MS);
+      const used = this.usageLog.reduce((sum, e) => sum + e.tokens, 0);
+
+      if (used + estimatedTokens <= TPM_LIMIT) {
+        this.usageLog.push({ time: now, tokens: estimatedTokens });
+        return;
+      }
+
+      const oldest = this.usageLog[0];
+      const waitMs = oldest ? RATE_WINDOW_MS - (now - oldest.time) + 500 : 2000;
+      this.logger.log(
+        `Groq token budget full (${used}/${TPM_LIMIT} used this minute) — waiting ${waitMs}ms before next call`,
+      );
+      await sleep(Math.max(waitMs, 500));
+    }
+  }
+
+  private async callGroq(
+    systemPrompt: string,
+    fileBlocks: string,
+    estimatedTokens: number,
+    attempt = 1,
+  ): Promise<AiRepoAnalysis> {
+    await this.waitForBudget(estimatedTokens);
+
     let response: Response;
     try {
       response = await fetch(GROQ_API_URL, {
@@ -119,6 +165,15 @@ Rules:
     if (!response.ok) {
       const body = await response.text();
       this.logger.error(`Groq API returned ${response.status}: ${body}`);
+
+      if (response.status === 429 && attempt === 1) {
+        const match = body.match(/try again in ([\d.]+)s/i);
+        const retryMs = match ? Math.ceil(parseFloat(match[1]) * 1000) + 1000 : 15_000;
+        this.logger.warn(`Rate limited by Groq — retrying once in ${retryMs}ms`);
+        await sleep(retryMs);
+        return this.callGroq(systemPrompt, fileBlocks, estimatedTokens, attempt + 1);
+      }
+
       throw new InternalServerErrorException(`AI analysis request failed (${response.status})`);
     }
 
