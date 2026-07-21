@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { FiPlus, FiFolder, FiX } from 'react-icons/fi';
+import { FiPlus, FiFolder, FiX, FiGithub } from 'react-icons/fi';
 import { projectsService } from '@/services/projectsService';
 import ProjectCard from '@/components/projects/ProjectCard';
+import ImportGithubModal from '@/components/projects/ImportGithubModal';
 import EmptyState from '@/components/ui/EmptyState';
 import Skeleton from '@/components/ui/Skeleton';
 import toast from 'react-hot-toast';
@@ -21,6 +22,7 @@ const defaultForm = (): ProjectFormState => ({ name: '', description: '', color:
 export default function ProjectsPage() {
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [form, setForm] = useState<ProjectFormState>(defaultForm());
 
@@ -102,10 +104,17 @@ export default function ProjectsPage() {
             Track work across every client and side project.
           </p>
         </div>
-        <button className="btn-primary" onClick={() => { setShowModal(true); setEditingProject(null); setForm(defaultForm()); }}>
-          <FiPlus size={15} /> New project
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button className="btn-ghost" onClick={() => setShowImportModal(true)}>
+            <FiGithub size={15} /> Import from GitHub
+          </button>
+          <button className="btn-primary" onClick={() => { setShowModal(true); setEditingProject(null); setForm(defaultForm()); }}>
+            <FiPlus size={15} /> New project
+          </button>
+        </div>
       </div>
+
+      {showImportModal && <ImportGithubModal onClose={() => setShowImportModal(false)} />}
 
       {isLoading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">

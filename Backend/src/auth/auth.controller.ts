@@ -108,11 +108,52 @@ export class AuthController {
     // Passport redirects to GitHub — no body needed
   }
 
+  @Get('github/link-url')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Get a GitHub OAuth URL that connects GitHub to the CURRENT logged-in account (safe even if the GitHub email differs from this account\'s email) — used by "Connect GitHub" in Settings, instead of the plain sign-in route.',
+  })
+  getGithubLinkUrl(@CurrentUser() user: { userId: string }) {
+    const state = this.authService.createLinkState(user.userId);
+    const clientId = (process.env.GITHUB_CLIENT_ID ?? '').trim();
+    const callbackUrl = (
+      process.env.GITHUB_CALLBACK_URL ?? 'http://localhost:4000/api/v1/auth/github/callback'
+    ).trim();
+    const scope = 'user:email repo';
+    const url =
+      `https://github.com/login/oauth/authorize` +
+      `?client_id=${encodeURIComponent(clientId)}` +
+      `&redirect_uri=${encodeURIComponent(callbackUrl)}` +
+      `&scope=${encodeURIComponent(scope)}` +
+      `&state=${encodeURIComponent(state)}`;
+    return { url };
+  }
+
   @Get('github/callback')
   @UseGuards(GithubAuthGuard)
   @ApiOperation({ summary: 'GitHub OAuth callback' })
   async githubCallback(@Req() req: Request, @Res() res: Response) {
     const profile = req.user as OAuthProfile;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+    // If `state` decodes to a valid link-token, an already-logged-in user
+    // clicked "Connect GitHub" — attach this GitHub account to THEIR user
+    // (by userId, not by email match) rather than running normal sign-in
+    // resolution, which could otherwise create/log into an unrelated account
+    // if the GitHub email differs from the one they're already using.
+    const linkUserId = this.authService.verifyLinkState(req.query.state as string | undefined);
+    if (linkUserId) {
+      try {
+        await this.authService.linkOAuthAccount(linkUserId, profile);
+        return res.redirect(`${frontendUrl}/settings?github=linked`);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to link GitHub account';
+        return res.redirect(`${frontendUrl}/settings?github=error&message=${encodeURIComponent(message)}`);
+      }
+    }
+
     const tokens = await this.authService.findOrCreateOAuthUser(profile);
     res.redirect(this.buildCallbackUrl(tokens));
   }

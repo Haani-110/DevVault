@@ -12,6 +12,7 @@ export interface User {
   linkedinUrl?: string;
   role: Role;
   createdAt: string;
+  oauthAccounts?: { provider: string }[];
 }
 
 export interface AuthTokens {

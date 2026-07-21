@@ -186,6 +186,82 @@ export class AuthService {
     return this.generateTokens(user.id, user.email, user.role);
   }
 
+  /**
+   * Signs a short-lived token identifying "this specific logged-in user wants
+   * to connect a provider," carried through the OAuth redirect as `state`.
+   * Separate from access/refresh tokens so it can't be reused as a session
+   * token if it leaked, and expires quickly since it's only needed for the
+   * few seconds of the OAuth round trip.
+   */
+  createLinkState(userId: string): string {
+    return this.jwtService.sign(
+      { sub: userId, purpose: 'link-provider' },
+      { secret: this.accessSecret, expiresIn: '10m' },
+    );
+  }
+
+  /** Returns the userId if `state` is a valid, unexpired link token — otherwise null (never throws). */
+  verifyLinkState(state: string | undefined): string | null {
+    if (!state) return null;
+    try {
+      const payload = this.jwtService.verify<{ sub: string; purpose: string }>(state, {
+        secret: this.accessSecret,
+      });
+      return payload.purpose === 'link-provider' ? payload.sub : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Attaches an OAuth provider to an ALREADY-KNOWN user (from an active session),
+   * instead of resolving the user by matching email the way sign-in does. This is
+   * what makes "connect GitHub" safe for someone who signed up with Google/password
+   * using a different email than their GitHub account — see auth.controller.ts.
+   */
+  async linkOAuthAccount(
+    userId: string,
+    profile: {
+      provider: string;
+      providerUid: string;
+      accessToken?: string;
+      refreshToken?: string;
+    },
+  ) {
+    const existing = await this.prisma.oAuthAccount.findUnique({
+      where: {
+        provider_providerUid: {
+          provider: profile.provider,
+          providerUid: profile.providerUid,
+        },
+      },
+    });
+
+    if (existing) {
+      if (existing.userId !== userId) {
+        throw new ConflictException(
+          `This ${profile.provider} account is already linked to a different DevVault account.`,
+        );
+      }
+      // Already linked to this same user — just refresh the stored tokens.
+      await this.prisma.oAuthAccount.update({
+        where: { id: existing.id },
+        data: { accessToken: profile.accessToken, refreshToken: profile.refreshToken },
+      });
+      return;
+    }
+
+    await this.prisma.oAuthAccount.create({
+      data: {
+        userId,
+        provider: profile.provider,
+        providerUid: profile.providerUid,
+        accessToken: profile.accessToken,
+        refreshToken: profile.refreshToken,
+      },
+    });
+  }
+
   async changePassword(userId: string, dto: ChangePasswordDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException();

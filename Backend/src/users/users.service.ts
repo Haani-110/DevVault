@@ -38,6 +38,9 @@ export class UsersService {
         linkedinUrl: true,
         role: true,
         createdAt: true,
+        oauthAccounts: {
+          select: { provider: true },
+        },
       },
     });
   }

@@ -1,5 +1,7 @@
-import { useState, useRef, type FormEvent } from 'react';
-import { FiLock, FiEye, FiEyeOff, FiCheck, FiCamera, FiUser } from 'react-icons/fi';
+import { useState, useRef, useEffect, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { FiLock, FiEye, FiEyeOff, FiCheck, FiCamera, FiUser, FiGithub } from 'react-icons/fi';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
 import { userService } from '@/services/userService';
@@ -30,6 +32,51 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [connectingGithub, setConnectingGithub] = useState(false);
+
+  // Fresh profile fetch (rather than relying only on the cached authStore user)
+  // so "Connected accounts" always reflects the true current linked-provider state —
+  // e.g. right after landing back here from a GitHub connect redirect.
+  const { data: freshUser, refetch: refetchMe } = useQuery({
+    queryKey: ['me'],
+    queryFn: userService.getMe,
+  });
+
+  useEffect(() => {
+    const githubStatus = searchParams.get('github');
+    if (githubStatus === 'linked') {
+      toast.success('GitHub connected — you can now import repositories.');
+      refetchMe();
+      setSearchParams((params) => {
+        params.delete('github');
+        return params;
+      });
+    } else if (githubStatus === 'error') {
+      const message = searchParams.get('message') || 'Failed to connect GitHub.';
+      toast.error(message);
+      setSearchParams((params) => {
+        params.delete('github');
+        params.delete('message');
+        return params;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleConnectGithub = async () => {
+    setConnectingGithub(true);
+    try {
+      const { url } = await authService.getGithubLinkUrl();
+      window.location.href = url;
+    } catch {
+      toast.error('Could not start the GitHub connection — please try again.');
+      setConnectingGithub(false);
+    }
+  };
+
+  const githubLinked = freshUser?.oauthAccounts?.some((a) => a.provider === 'github') ?? false;
+  const googleLinked = freshUser?.oauthAccounts?.some((a) => a.provider === 'google') ?? false;
 
   // Profile fields
   const [username, setUsername] = useState(user?.username ?? '');
@@ -274,6 +321,47 @@ export default function Settings() {
           </button>
         </div>
       </form>
+
+      {/* Connected Accounts */}
+      <div className="card p-5 space-y-3">
+        <div>
+          <h3 className="font-display font-semibold text-sm mb-0.5">Connected accounts</h3>
+          <p className="text-xs text-text-faint">
+            GitHub is required to import a repository's notes and snippets.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between px-3 py-2.5 rounded border border-border">
+          <div className="flex items-center gap-2.5">
+            <FiGithub size={16} />
+            <span className="text-sm text-text">GitHub</span>
+          </div>
+          {githubLinked ? (
+            <span className="flex items-center gap-1 text-xs text-ok font-medium">
+              <FiCheck size={13} /> Connected
+            </span>
+          ) : (
+            <button
+              onClick={handleConnectGithub}
+              disabled={connectingGithub}
+              className="btn-ghost text-xs py-1.5 px-3"
+            >
+              {connectingGithub ? 'Redirecting…' : 'Connect'}
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between px-3 py-2.5 rounded border border-border">
+          <span className="text-sm text-text">Google</span>
+          {googleLinked ? (
+            <span className="flex items-center gap-1 text-xs text-ok font-medium">
+              <FiCheck size={13} /> Connected
+            </span>
+          ) : (
+            <span className="text-xs text-text-faint">Not connected</span>
+          )}
+        </div>
+      </div>
 
       {/* Change Password */}
       <form onSubmit={handleChangePassword} className="card p-5 space-y-4">

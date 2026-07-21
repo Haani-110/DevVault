@@ -13,7 +13,9 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
         process.env.GITHUB_CALLBACK_URL ??
         'http://localhost:4000/api/v1/auth/github/callback'
       ).trim(),
-      scope: ['user:email'],
+      // 'repo' is needed so imported/private repos can be read for the AI import feature.
+      // If you only ever want to import public repos, you can narrow this to ['user:email', 'public_repo'].
+      scope: ['user:email', 'repo'],
     });
   }
 
