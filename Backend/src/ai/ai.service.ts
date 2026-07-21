@@ -31,7 +31,7 @@ export interface AiRepoAnalysis {
 // file batches may need to be chunked by the caller — see MAX_OUTPUT_TOKENS.
 const MODEL = 'llama-3.3-70b-versatile';
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const MAX_OUTPUT_TOKENS = 8000;
+const MAX_OUTPUT_TOKENS = 3000;
 
 @Injectable()
 export class AiService {

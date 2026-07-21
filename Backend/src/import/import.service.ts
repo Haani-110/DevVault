@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AiService, AnalyzedFile } from '../ai/ai.service';
+import { AiService, AnalyzedFile, AiRepoAnalysis } from '../ai/ai.service';
 import { ImportRepoDto } from './dto/import-repo.dto';
 
 const GITHUB_API = 'https://api.github.com';
@@ -25,15 +25,54 @@ const SKIP_EXTENSIONS = [
 
 const SKIP_FILENAMES = ['package-lock.json', 'yarn.lock', 'pnpm-lock.yaml'];
 
-const MAX_FILES = 30;
-const MAX_FILE_BYTES = 40_000; // skip unusually large single files
-const MAX_TOTAL_CHARS = 60_000; // cap total content sent to the AI per import
+// These bound how much we fetch from GitHub overall — set high so a full repo
+// gets pulled rather than artificially truncated. The real per-request limit
+// that matters (Groq's free-tier tokens-per-minute cap) is handled separately
+// below via batching, not by dropping files here.
+const MAX_FILES = 500;
+const MAX_FILE_BYTES = 40_000; // still guard against one absurdly large single file
+const MAX_TOTAL_CHARS = 2_000_000; // overall safety ceiling, not a practical limit for most repos
+
+// Groq's free tier caps requests at 12,000 tokens/minute (input + system prompt +
+// reserved output tokens all count). Each AI call's input is kept under this budget
+// (~4 chars/token estimate, with headroom for the system prompt and reserved output).
+const BATCH_CHAR_BUDGET = 24_000;
+// Wait between batches so cumulative usage across calls doesn't exceed the
+// per-minute cap — this is a *rolling* limit, so back-to-back small requests
+// can still add up and get rejected without this pause.
+const BATCH_DELAY_MS = 65_000;
 
 interface GithubTreeEntry {
   path: string;
   type: 'blob' | 'tree';
   sha: string;
   size?: number;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Splits files into batches, each kept under BATCH_CHAR_BUDGET total content chars. */
+function batchFiles(files: AnalyzedFile[], charBudget: number): AnalyzedFile[][] {
+  const batches: AnalyzedFile[][] = [];
+  let current: AnalyzedFile[] = [];
+  let currentChars = 0;
+
+  for (const file of files) {
+    // A single file bigger than the whole budget still gets its own solo batch
+    // rather than being dropped.
+    if (currentChars > 0 && currentChars + file.content.length > charBudget) {
+      batches.push(current);
+      current = [];
+      currentChars = 0;
+    }
+    current.push(file);
+    currentChars += file.content.length;
+  }
+  if (current.length > 0) batches.push(current);
+
+  return batches;
 }
 
 @Injectable()
@@ -140,6 +179,37 @@ export class ImportService {
     return files;
   }
 
+  /**
+   * Runs AI analysis across all files in batches sized to fit Groq's free-tier
+   * per-minute token budget, pausing between calls, and merges every batch's
+   * notes/snippets into one combined result. No files are skipped because of
+   * the AI provider's rate limit — they're just spread across multiple calls.
+   */
+  private async analyzeInBatches(
+    repoFullName: string,
+    files: AnalyzedFile[],
+  ): Promise<AiRepoAnalysis> {
+    const batches = batchFiles(files, BATCH_CHAR_BUDGET);
+    const combined: AiRepoAnalysis = { notes: [], snippets: [] };
+
+    for (let i = 0; i < batches.length; i++) {
+      if (i > 0) {
+        this.logger.log(
+          `Waiting ${BATCH_DELAY_MS}ms before AI batch ${i + 1}/${batches.length} to respect rate limits`,
+        );
+        await sleep(BATCH_DELAY_MS);
+      }
+      this.logger.log(
+        `Analyzing batch ${i + 1}/${batches.length} (${batches[i].length} files) for ${repoFullName}`,
+      );
+      const result = await this.aiService.analyzeRepoFiles(repoFullName, batches[i]);
+      combined.notes.push(...result.notes);
+      combined.snippets.push(...result.snippets);
+    }
+
+    return combined;
+  }
+
   /** Fetch a repo's tree, pull a bounded set of file contents, run AI analysis, and persist the result. */
   async importRepo(userId: string, dto: ImportRepoDto) {
     const token = await this.getGithubToken(userId);
@@ -177,7 +247,7 @@ export class ImportService {
 
     const files = await this.fetchFileContents(owner, repo, candidateEntries, token);
 
-    const analysis = await this.aiService.analyzeRepoFiles(repoInfo.full_name, files);
+    const analysis = await this.analyzeInBatches(repoInfo.full_name, files);
 
     const project = await this.prisma.project.create({
       data: {
