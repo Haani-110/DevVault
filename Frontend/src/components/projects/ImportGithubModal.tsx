@@ -26,7 +26,7 @@ const STAGES = [
  * bare spinner, and it never falsely claims 100% until the request actually
  * resolves.
  */
-function useSimulatedProgress(active: boolean, timeConstantSeconds = 20) {
+function useSimulatedProgress(active: boolean, timeConstantSeconds = 70) {
   const [progress, setProgress] = useState(0);
   const startRef = useRef<number | null>(null);
 
@@ -161,7 +161,7 @@ export default function ImportGithubModal({ onClose }: Props) {
               <p className="text-xs text-text-faint mt-1 max-w-xs">
                 {justFinished
                   ? `Taking you to ${selected?.fullName}…`
-                  : `Analyzing ${selected?.fullName} — this usually takes under a minute.`}
+                  : `Analyzing ${selected?.fullName} — larger repos can take a few minutes.`}
               </p>
             </div>
           </div>

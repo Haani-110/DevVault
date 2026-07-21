@@ -23,16 +23,26 @@ const SKIP_EXTENSIONS = [
 
 const SKIP_FILENAMES = ['package-lock.json', 'yarn.lock', 'pnpm-lock.yaml'];
 
-const MAX_FILES = 500;
-const MAX_FILE_BYTES = 40_000;
-const MAX_TOTAL_CHARS = 2_000_000;
+// With Groq's free-tier pacing (see ai.service.ts) landing at roughly one
+// batch request per ~60s, this cap is sized so a typical import needs at most
+// ~4 batches — comfortably finishing within a few minutes rather than
+// technically allowing more content at the cost of a much longer, unpredictable
+// import time. Larger repos are truncated to this budget rather than processed
+// in full; see fetchFileContents' file-priority ordering for what gets kept.
+const MAX_FILES = 60;
+const MAX_FILE_BYTES = 8_000;
+const MAX_TOTAL_CHARS = 50_000;
 
-const BATCH_CHAR_BUDGET = 24_000;
-// How many batches to send to Groq at once. Groq's inference is fast (typically
-// a few seconds per call even for large batches), so a handful in parallel keeps
-// total wall-clock time for a big repo well within a few minutes, rather than
-// the minutes-per-batch cost of doing them one after another.
-const BATCH_CONCURRENCY = 5;
+// Sized so a single batch's input tokens + MAX_OUTPUT_TOKENS + the system
+// prompt stay comfortably under Groq's free-tier 12,000 TPM cap, with margin
+// for estimation error (code tends to run ~3-3.5 chars/token, not 4).
+const BATCH_CHAR_BUDGET = 14_000;
+// IMPORTANT: Groq's free-tier rate limit (12k tokens/minute) is a shared pool
+// across the whole account, not a per-request ceiling — so running batches
+// concurrently means N requests all draw from the SAME budget at once and
+// blow through it immediately (this is exactly what caused repeated 413
+// "tokens per minute" errors). Batches must run one at a time on this tier.
+const BATCH_CONCURRENCY = 1;
 
 interface GithubTreeEntry {
   path: string;
@@ -180,30 +190,30 @@ export class ImportService {
     entries: GithubTreeEntry[],
     token: string,
   ): Promise<AnalyzedFile[]> {
+    // GitHub's API rate limit (5,000 req/hr authenticated) is far more generous
+    // and per-request than Groq's shared-pool TPM limit, so fetching files in
+    // parallel here is safe and meaningfully speeds up this phase — unlike the
+    // AI analysis batches below, which must stay sequential.
+    const limited = entries.slice(0, MAX_FILES);
+    const fetched = await mapWithConcurrency(limited, 8, async (entry) => {
+      const blob = await this.githubFetch(`/repos/${owner}/${repo}/git/blobs/${entry.sha}`, token);
+      if (blob.encoding !== 'base64') return null;
+      try {
+        const content = Buffer.from(blob.content, 'base64').toString('utf-8');
+        return { path: entry.path, content: content.slice(0, MAX_FILE_BYTES) } as AnalyzedFile;
+      } catch {
+        return null;
+      }
+    });
+
     const files: AnalyzedFile[] = [];
     let totalChars = 0;
-
-    for (const entry of entries) {
-      if (files.length >= MAX_FILES || totalChars >= MAX_TOTAL_CHARS) break;
-
-      const blob = await this.githubFetch(
-        `/repos/${owner}/${repo}/git/blobs/${entry.sha}`,
-        token,
-      );
-      if (blob.encoding !== 'base64') continue;
-
-      let content: string;
-      try {
-        content = Buffer.from(blob.content, 'base64').toString('utf-8');
-      } catch {
-        continue;
-      }
-
-      const truncated = content.slice(0, MAX_FILE_BYTES);
-      totalChars += truncated.length;
-      files.push({ path: entry.path, content: truncated });
+    for (const file of fetched) {
+      if (!file) continue;
+      if (totalChars >= MAX_TOTAL_CHARS) break;
+      files.push(file);
+      totalChars += file.content.length;
     }
-
     return files;
   }
 

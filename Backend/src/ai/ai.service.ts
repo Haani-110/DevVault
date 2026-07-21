@@ -29,7 +29,11 @@ const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 // A strong, fast, free-tier-available Groq model — plenty for this bounded
 // "read files, summarize, extract" task.
 const MODEL = 'llama-3.3-70b-versatile';
-const MAX_OUTPUT_TOKENS = 8000;
+// Groq's free tier caps at 12,000 tokens PER MINUTE, shared across the whole
+// account/org — and `max_tokens` reserves that much against the cap up front,
+// regardless of how much output is actually used. Keeping this modest leaves
+// real headroom for the input tokens in the same request.
+const MAX_OUTPUT_TOKENS = 3000;
 
 // Retry transient failures (rate limits, momentary 5xx) automatically so a
 // single click on "Import" succeeds without the user needing to retry by hand.
@@ -40,10 +44,21 @@ const RETRY_DELAY_MS = [2000, 5000]; // backoff between attempts 1→2 and 2→3
 // fails fast with a clear error instead of hanging indefinitely if something's wrong.
 const REQUEST_TIMEOUT_MS = 90_000;
 
+// Groq's free tier: 12,000 tokens/minute, shared across the whole account.
+// Keep a safety margin below the real cap since our token estimate is
+// approximate (based on character count, not the model's actual tokenizer).
+const SAFE_TPM_BUDGET = 10_000;
+const RATE_WINDOW_MS = 61_000; // slightly over 60s, to be safely inside Groq's rolling window
+
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
   private readonly apiKey: string | null;
+
+  // Tracks {timestamp, estimatedTokens} for requests sent in the trailing window,
+  // so we can proactively wait before a request that would blow the TPM budget,
+  // rather than sending it, getting a 429, and retrying after the fact.
+  private recentUsage: { time: number; tokens: number }[] = [];
 
   constructor() {
     const key = process.env.GROQ_API_KEY;
@@ -57,6 +72,35 @@ export class AiService {
 
   get isConfigured(): boolean {
     return this.apiKey !== null;
+  }
+
+  private estimateTokens(text: string): number {
+    // Rough estimate — code tends to run ~3-3.5 chars/token, not the ~4 chars/token
+    // rule of thumb for prose. Erring toward overestimating is safer here (it just
+    // means slightly more conservative pacing, not a surprise 429).
+    return Math.ceil(text.length / 3);
+  }
+
+  /** Waits, if needed, until sending `tokens` more would stay within the rolling TPM budget. */
+  private async waitForBudget(tokens: number): Promise<void> {
+    for (;;) {
+      const now = Date.now();
+      this.recentUsage = this.recentUsage.filter((u) => now - u.time < RATE_WINDOW_MS);
+      const used = this.recentUsage.reduce((sum, u) => sum + u.tokens, 0);
+
+      if (used + tokens <= SAFE_TPM_BUDGET) {
+        this.recentUsage.push({ time: now, tokens });
+        return;
+      }
+
+      // Wait until the oldest entry falls out of the window, then re-check.
+      const oldest = this.recentUsage[0];
+      const waitMs = oldest ? RATE_WINDOW_MS - (now - oldest.time) + 250 : 1000;
+      this.logger.log(
+        `Pacing Groq requests: waiting ~${Math.round(waitMs / 1000)}s to stay under the free-tier rate limit`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, Math.max(waitMs, 250)));
+    }
   }
 
   /**
@@ -103,8 +147,10 @@ Rules:
 - Respond with valid JSON only.`;
 
     let lastError: Error | null = null;
+    const estimatedTokens = this.estimateTokens(systemPrompt) + this.estimateTokens(fileBlocks) + MAX_OUTPUT_TOKENS;
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      await this.waitForBudget(estimatedTokens);
       try {
         const text = await this.callGroq(systemPrompt, fileBlocks);
         return this.parseJson(text);
