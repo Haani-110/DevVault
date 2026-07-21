@@ -28,6 +28,11 @@ const MAX_FILE_BYTES = 40_000;
 const MAX_TOTAL_CHARS = 2_000_000;
 
 const BATCH_CHAR_BUDGET = 24_000;
+// How many batches to send to Groq at once. Groq's inference is fast (typically
+// a few seconds per call even for large batches), so a handful in parallel keeps
+// total wall-clock time for a big repo well within a few minutes, rather than
+// the minutes-per-batch cost of doing them one after another.
+const BATCH_CONCURRENCY = 5;
 
 interface GithubTreeEntry {
   path: string;
@@ -55,6 +60,33 @@ function batchFiles(files: AnalyzedFile[], charBudget: number): AnalyzedFile[][]
   return batches;
 }
 
+/**
+ * Runs `items` through `worker` with at most `concurrency` running at once.
+ * Batches are analyzed in parallel (rather than one at a time) so a repo that
+ * splits into many batches still finishes in a bounded amount of wall-clock
+ * time — sequential processing of, say, 20+ batches could otherwise blow well
+ * past a "few minutes" import target even though each individual call is fast.
+ */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+
+  async function runNext(): Promise<void> {
+    const i = nextIndex++;
+    if (i >= items.length) return;
+    results[i] = await worker(items[i], i);
+    await runNext();
+  }
+
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, () => runNext());
+  await Promise.all(workers);
+  return results;
+}
+
 @Injectable()
 export class ImportService {
   private readonly logger = new Logger(ImportService.name);
@@ -76,19 +108,37 @@ export class ImportService {
     return account.accessToken;
   }
 
-  private async githubFetch(path: string, token: string) {
-    const res = await fetch(`${GITHUB_API}${path}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-      },
-    });
+  private async githubFetch(path: string, token: string, attempt = 1): Promise<any> {
+    let res: Response;
+    try {
+      res = await fetch(`${GITHUB_API}${path}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+      });
+    } catch (err) {
+      // Network-level failure (DNS blip, connection reset) — retry a couple times.
+      if (attempt < 3) {
+        await new Promise((r) => setTimeout(r, 1000 * attempt));
+        return this.githubFetch(path, token, attempt + 1);
+      }
+      throw new InternalServerErrorException(
+        `Could not reach GitHub after ${attempt} attempts: ${(err as Error).message}`,
+      );
+    }
+
     if (!res.ok) {
       if (res.status === 401) {
         throw new BadRequestException(
           'Your GitHub connection has expired or lacks the required permissions. Reconnect GitHub and try again.',
         );
+      }
+      // Retry on rate-limit/server errors only — a 404/400 won't fix itself by retrying.
+      if ((res.status === 429 || res.status >= 500) && attempt < 3) {
+        await new Promise((r) => setTimeout(r, 1000 * attempt));
+        return this.githubFetch(path, token, attempt + 1);
       }
       const body = await res.text();
       this.logger.error(`GitHub API error ${res.status} for ${path}: ${body}`);
@@ -162,17 +212,20 @@ export class ImportService {
     files: AnalyzedFile[],
   ): Promise<AiRepoAnalysis> {
     const batches = batchFiles(files, BATCH_CHAR_BUDGET);
-    const combined: AiRepoAnalysis = { notes: [], snippets: [] };
+    this.logger.log(
+      `Analyzing ${files.length} files across ${batches.length} batch(es) for ${repoFullName} (concurrency: ${BATCH_CONCURRENCY})`,
+    );
 
-    for (let i = 0; i < batches.length; i++) {
-      this.logger.log(
-        `Analyzing batch ${i + 1}/${batches.length} (${batches[i].length} files) for ${repoFullName}`,
-      );
-      const result = await this.aiService.analyzeRepoFiles(repoFullName, batches[i]);
+    const results = await mapWithConcurrency(batches, BATCH_CONCURRENCY, async (batch, i) => {
+      this.logger.log(`Batch ${i + 1}/${batches.length}: ${batch.length} files`);
+      return this.aiService.analyzeRepoFiles(repoFullName, batch);
+    });
+
+    const combined: AiRepoAnalysis = { notes: [], snippets: [] };
+    for (const result of results) {
       combined.notes.push(...result.notes);
       combined.snippets.push(...result.snippets);
     }
-
     return combined;
   }
 

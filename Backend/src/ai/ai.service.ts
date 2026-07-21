@@ -24,26 +24,26 @@ export interface AiRepoAnalysis {
   snippets: AiSnippetResult[];
 }
 
-const MODEL = 'llama-3.3-70b-versatile';
+// Groq's OpenAI-compatible chat completions endpoint.
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const MAX_OUTPUT_TOKENS = 3000;
+// A strong, fast, free-tier-available Groq model — plenty for this bounded
+// "read files, summarize, extract" task.
+const MODEL = 'llama-3.3-70b-versatile';
+const MAX_OUTPUT_TOKENS = 8000;
 
-const TPM_LIMIT = 10_000;
-const CHARS_PER_TOKEN_ESTIMATE = 4;
-const RATE_WINDOW_MS = 60_000;
+// Retry transient failures (rate limits, momentary 5xx) automatically so a
+// single click on "Import" succeeds without the user needing to retry by hand.
+const MAX_ATTEMPTS = 3;
+const RETRY_DELAY_MS = [2000, 5000]; // backoff between attempts 1→2 and 2→3
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+// Hard ceiling well under the "import should take at most ~5 minutes" target —
+// fails fast with a clear error instead of hanging indefinitely if something's wrong.
+const REQUEST_TIMEOUT_MS = 90_000;
 
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
   private readonly apiKey: string | null;
-
-  private queue: Promise<void> = Promise.resolve();
-
-  private usageLog: { time: number; tokens: number }[] = [];
 
   constructor() {
     const key = process.env.GROQ_API_KEY;
@@ -59,6 +59,12 @@ export class AiService {
     return this.apiKey !== null;
   }
 
+  /**
+   * Sends a batch of source files to Groq and asks it to return structured
+   * notes (summaries/explanations) and snippets (reusable code blocks) as JSON.
+   * Retries automatically on transient failures (429/5xx/timeout) so the
+   * caller only needs to try once.
+   */
   async analyzeRepoFiles(
     repoName: string,
     files: AnalyzedFile[],
@@ -93,51 +99,36 @@ Rules:
 - "snippets": extract only genuinely reusable pieces (utility functions, hooks, config patterns, middleware, etc.) — not entire files verbatim. Keep each snippet focused and under ~40 lines. It's fine to return an empty array if nothing is genuinely reusable.
 - "language" should be a lowercase identifier like "typescript", "javascript", "python", "css", "json".
 - Keep "tags" short (1-4 words each), lowercase, relevant to topic/technology.
-- Do not invent information that isn't supported by the provided file contents.`;
+- Do not invent information that isn't supported by the provided file contents.
+- Respond with valid JSON only.`;
 
-    const estimatedTokens =
-      Math.ceil((systemPrompt.length + fileBlocks.length) / CHARS_PER_TOKEN_ESTIMATE) +
-      MAX_OUTPUT_TOKENS;
+    let lastError: Error | null = null;
 
-    return this.enqueue(() => this.callGroq(systemPrompt, fileBlocks, estimatedTokens));
-  }
-
-  private enqueue<T>(task: () => Promise<T>): Promise<T> {
-    const run = this.queue.then(task);
-    this.queue = run.then(
-      () => undefined,
-      () => undefined,
-    );
-    return run;
-  }
-
-  private async waitForBudget(estimatedTokens: number): Promise<void> {
-    for (;;) {
-      const now = Date.now();
-      this.usageLog = this.usageLog.filter((e) => now - e.time < RATE_WINDOW_MS);
-      const used = this.usageLog.reduce((sum, e) => sum + e.tokens, 0);
-
-      if (used + estimatedTokens <= TPM_LIMIT) {
-        this.usageLog.push({ time: now, tokens: estimatedTokens });
-        return;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        const text = await this.callGroq(systemPrompt, fileBlocks);
+        return this.parseJson(text);
+      } catch (err) {
+        lastError = err as Error;
+        const isLastAttempt = attempt === MAX_ATTEMPTS;
+        this.logger.warn(
+          `Groq call attempt ${attempt}/${MAX_ATTEMPTS} failed: ${lastError.message}` +
+            (isLastAttempt ? ' — giving up.' : ' — retrying...'),
+        );
+        if (!isLastAttempt) {
+          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS[attempt - 1]));
+        }
       }
-
-      const oldest = this.usageLog[0];
-      const waitMs = oldest ? RATE_WINDOW_MS - (now - oldest.time) + 500 : 2000;
-      this.logger.log(
-        `Groq token budget full (${used}/${TPM_LIMIT} used this minute) — waiting ${waitMs}ms before next call`,
-      );
-      await sleep(Math.max(waitMs, 500));
     }
+
+    throw new InternalServerErrorException(
+      `AI analysis failed after ${MAX_ATTEMPTS} attempts: ${lastError?.message ?? 'unknown error'}`,
+    );
   }
 
-  private async callGroq(
-    systemPrompt: string,
-    fileBlocks: string,
-    estimatedTokens: number,
-    attempt = 1,
-  ): Promise<AiRepoAnalysis> {
-    await this.waitForBudget(estimatedTokens);
+  private async callGroq(systemPrompt: string, fileBlocks: string): Promise<string> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
     let response: Response;
     try {
@@ -147,44 +138,37 @@ Rules:
           'Content-Type': 'application/json',
           Authorization: `Bearer ${this.apiKey}`,
         },
+        signal: controller.signal,
         body: JSON.stringify({
           model: MODEL,
+          max_tokens: MAX_OUTPUT_TOKENS,
+          response_format: { type: 'json_object' },
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: fileBlocks },
           ],
-          max_tokens: MAX_OUTPUT_TOKENS,
-          response_format: { type: 'json_object' },
         }),
       });
     } catch (err) {
-      this.logger.error('Groq API call failed', err as Error);
-      throw new InternalServerErrorException('AI analysis request failed');
+      if ((err as Error).name === 'AbortError') {
+        throw new Error(`Groq request timed out after ${REQUEST_TIMEOUT_MS / 1000}s`);
+      }
+      throw new Error(`Groq request failed to send: ${(err as Error).message}`);
+    } finally {
+      clearTimeout(timeout);
     }
 
     if (!response.ok) {
       const body = await response.text();
-      this.logger.error(`Groq API returned ${response.status}: ${body}`);
-
-      if (response.status === 429 && attempt === 1) {
-        const match = body.match(/try again in ([\d.]+)s/i);
-        const retryMs = match ? Math.ceil(parseFloat(match[1]) * 1000) + 1000 : 15_000;
-        this.logger.warn(`Rate limited by Groq — retrying once in ${retryMs}ms`);
-        await sleep(retryMs);
-        return this.callGroq(systemPrompt, fileBlocks, estimatedTokens, attempt + 1);
-      }
-
-      throw new InternalServerErrorException(`AI analysis request failed (${response.status})`);
+      throw new Error(`Groq API returned ${response.status}: ${body.slice(0, 500)}`);
     }
 
     const data = await response.json();
     const text: string | undefined = data?.choices?.[0]?.message?.content;
     if (!text) {
-      this.logger.error(`Unexpected Groq response shape: ${JSON.stringify(data).slice(0, 500)}`);
-      throw new InternalServerErrorException('AI returned no analyzable content');
+      throw new Error(`Unexpected Groq response shape: ${JSON.stringify(data).slice(0, 500)}`);
     }
-
-    return this.parseJson(text);
+    return text;
   }
 
   private parseJson(raw: string): AiRepoAnalysis {
