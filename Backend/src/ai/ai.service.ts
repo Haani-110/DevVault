@@ -24,10 +24,13 @@ export interface AiRepoAnalysis {
   snippets: AiSnippetResult[];
 }
 
-// Flash is used specifically because it's covered by Gemini's free tier and is
-// well within capability for this bounded "read files, summarize, extract" task.
-const MODEL = 'gemini-2.0-flash';
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+// Groq's free tier requires no billing/card setup at all, unlike Gemini's
+// current quota policy. llama-3.3-70b-versatile gives GPT-4o-class quality
+// for this "read files, summarize, extract" task. Note: Groq's free-tier
+// TPM (tokens-per-minute) ceiling is tighter than Gemini's, so very large
+// file batches may need to be chunked by the caller — see MAX_OUTPUT_TOKENS.
+const MODEL = 'llama-3.3-70b-versatile';
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const MAX_OUTPUT_TOKENS = 8000;
 
 @Injectable()
@@ -36,9 +39,9 @@ export class AiService {
   private readonly apiKey: string | null;
 
   constructor() {
-    const key = process.env.GEMINI_API_KEY;
+    const key = process.env.GROQ_API_KEY;
     if (!key) {
-      this.logger.warn('GEMINI_API_KEY not set — AI import features are disabled');
+      this.logger.warn('GROQ_API_KEY not set — AI import features are disabled');
       this.apiKey = null;
     } else {
       this.apiKey = key;
@@ -50,8 +53,9 @@ export class AiService {
   }
 
   /**
-   * Sends a batch of source files to Gemini and asks it to return structured
-   * notes (summaries/explanations) and snippets (reusable code blocks) as JSON.
+   * Sends a batch of source files to Groq (Llama 3.3 70B) and asks it to
+   * return structured notes (summaries/explanations) and snippets (reusable
+   * code blocks) as JSON.
    */
   async analyzeRepoFiles(
     repoName: string,
@@ -59,7 +63,7 @@ export class AiService {
   ): Promise<AiRepoAnalysis> {
     if (!this.apiKey) {
       throw new InternalServerErrorException(
-        'AI analysis is not configured (missing GEMINI_API_KEY)',
+        'AI analysis is not configured (missing GROQ_API_KEY)',
       );
     }
 
@@ -91,33 +95,37 @@ Rules:
 
     let response: Response;
     try {
-      response = await fetch(`${GEMINI_API_URL}?key=${this.apiKey}`, {
+      response = await fetch(GROQ_API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
         body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: fileBlocks }] }],
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          generationConfig: {
-            maxOutputTokens: MAX_OUTPUT_TOKENS,
-            responseMimeType: 'application/json',
-          },
+          model: MODEL,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: fileBlocks },
+          ],
+          max_tokens: MAX_OUTPUT_TOKENS,
+          response_format: { type: 'json_object' },
         }),
       });
     } catch (err) {
-      this.logger.error('Gemini API call failed', err as Error);
+      this.logger.error('Groq API call failed', err as Error);
       throw new InternalServerErrorException('AI analysis request failed');
     }
 
     if (!response.ok) {
       const body = await response.text();
-      this.logger.error(`Gemini API returned ${response.status}: ${body}`);
+      this.logger.error(`Groq API returned ${response.status}: ${body}`);
       throw new InternalServerErrorException(`AI analysis request failed (${response.status})`);
     }
 
     const data = await response.json();
-    const text: string | undefined = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const text: string | undefined = data?.choices?.[0]?.message?.content;
     if (!text) {
-      this.logger.error(`Unexpected Gemini response shape: ${JSON.stringify(data).slice(0, 500)}`);
+      this.logger.error(`Unexpected Groq response shape: ${JSON.stringify(data).slice(0, 500)}`);
       throw new InternalServerErrorException('AI returned no analyzable content');
     }
 
