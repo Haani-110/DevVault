@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FiX, FiGithub, FiSearch, FiLock, FiCheck } from 'react-icons/fi';
@@ -10,51 +10,13 @@ interface Props {
   onClose: () => void;
 }
 
-const STAGES = [
-  { threshold: 0, label: 'Connecting to GitHub…' },
-  { threshold: 12, label: 'Reading repository files…' },
-  { threshold: 35, label: 'Analyzing with AI…' },
-  { threshold: 90, label: 'Creating notes and snippets…' },
-];
-
-/**
- * Simulates a smooth, ever-advancing progress percentage while the single
- * import request is in flight. There's no real-time backend progress feed
- * (the whole import is one request/response), so this approximates it with
- * a time-based easing curve that reaches ~95% asymptotically — fast repos
- * feel fast, slow ones still show continuous forward motion rather than a
- * bare spinner, and it never falsely claims 100% until the request actually
- * resolves.
- */
-function useSimulatedProgress(active: boolean, timeConstantSeconds = 70) {
-  const [progress, setProgress] = useState(0);
-  const startRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (!active) {
-      setProgress(0);
-      startRef.current = null;
-      return;
-    }
-    startRef.current = Date.now();
-    const interval = setInterval(() => {
-      const elapsed = (Date.now() - (startRef.current ?? Date.now())) / 1000;
-      const next = 95 * (1 - Math.exp(-elapsed / timeConstantSeconds));
-      setProgress(next);
-    }, 250);
-    return () => clearInterval(interval);
-  }, [active, timeConstantSeconds]);
-
-  const stage = [...STAGES].reverse().find((s) => progress >= s.threshold) ?? STAGES[0];
-  return { progress, stageLabel: stage.label };
-}
-
 export default function ImportGithubModal({ onClose }: Props) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<GithubRepo | null>(null);
-  const [justFinished, setJustFinished] = useState(false);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [handledResult, setHandledResult] = useState(false);
 
   const { data: repos, isLoading, isError, error } = useQuery({
     queryKey: ['github-repos'],
@@ -62,30 +24,57 @@ export default function ImportGithubModal({ onClose }: Props) {
     retry: false,
   });
 
-  const importMutation = useMutation({
-    mutationFn: () => importService.importGithubRepo(selected!.owner, selected!.name, selected!.defaultBranch),
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      // Brief 100% + checkmark flash so the bar doesn't jump straight from
-      // ~90% to the modal vanishing — a small but real confirmation moment.
-      setJustFinished(true);
-      setTimeout(() => {
-        toast.success(
-          `Imported ${result.notesCreated} notes and ${result.snippetsCreated} snippets from ${selected!.fullName}`,
-        );
-        onClose();
-        navigate(`/projects/${result.project.id}`);
-      }, 500);
+  const startMutation = useMutation({
+    mutationFn: () => importService.startImport(selected!.owner, selected!.name, selected!.defaultBranch),
+    onSuccess: ({ jobId }) => {
+      setJobId(jobId);
+      setHandledResult(false);
     },
     onError: (err: unknown) => {
       const message =
-        (err as any)?.response?.data?.message || 'Import failed — please try again.';
+        (err as any)?.response?.data?.message || 'Could not start the import — please try again.';
       toast.error(Array.isArray(message) ? message[0] : message);
     },
   });
 
-  const { progress, stageLabel } = useSimulatedProgress(importMutation.isPending);
+  // Polls the actual backend job — a real import can take a few minutes
+  // (AI rate-limit pacing forces this), so it's a background job rather than
+  // one long-held request. This shows genuine progress, not a simulation.
+  const { data: job } = useQuery({
+    queryKey: ['import-job', jobId],
+    queryFn: () => importService.getImportStatus(jobId!),
+    enabled: !!jobId,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === 'done' || status === 'error' ? false : 2000;
+    },
+  });
+
+  // React to the job reaching a terminal state (done/error) exactly once,
+  // via an effect — not during render, since this triggers navigation/toasts.
+  useEffect(() => {
+    if (job?.status === 'done' && job.result && !handledResult) {
+      setHandledResult(true);
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      const result = job.result;
+      const repoName = job.repoFullName ?? selected?.fullName;
+      const timer = setTimeout(() => {
+        toast.success(`Imported ${result.notesCreated} notes and ${result.snippetsCreated} snippets from ${repoName}`);
+        onClose();
+        navigate(`/projects/${result.project.id}`);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+    if (job?.status === 'error' && !handledResult) {
+      setHandledResult(true);
+      toast.error(job.error || 'Import failed — please try again.');
+      setJobId(null);
+    }
+  }, [job, handledResult, queryClient, navigate, onClose, selected]);
+
+  const isActivelyRunning = !!jobId && (!job || (job.status !== 'done' && job.status !== 'error'));
+  const justFinished = job?.status === 'done';
 
   const filteredRepos = useMemo(() => {
     if (!repos) return [];
@@ -111,10 +100,14 @@ export default function ImportGithubModal({ onClose }: Props) {
     }
   };
 
+  const showProgress = isActivelyRunning || justFinished;
+  const progress = justFinished ? 100 : job?.progress ?? 0;
+  const stageLabel = justFinished ? 'Done!' : job?.stageLabel ?? 'Starting…';
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-      onClick={(e) => e.target === e.currentTarget && !importMutation.isPending && onClose()}
+      onClick={(e) => e.target === e.currentTarget && !isActivelyRunning && onClose()}
     >
       <div className="card w-full max-w-lg flex flex-col max-h-[85vh]">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
@@ -122,7 +115,7 @@ export default function ImportGithubModal({ onClose }: Props) {
             <FiGithub size={17} />
             <h2 className="font-display font-semibold text-lg">Import from GitHub</h2>
           </div>
-          {!importMutation.isPending && (
+          {!isActivelyRunning && (
             <button
               onClick={onClose}
               className="w-7 h-7 flex items-center justify-center rounded text-text-muted hover:text-text hover:bg-surface-hover transition-colors"
@@ -133,7 +126,7 @@ export default function ImportGithubModal({ onClose }: Props) {
           )}
         </div>
 
-        {importMutation.isPending ? (
+        {showProgress ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 py-16 px-8 text-center">
             <div className="w-16 h-16 rounded-full flex items-center justify-center border-2 border-brass-400/30">
               {justFinished ? (
@@ -148,20 +141,23 @@ export default function ImportGithubModal({ onClose }: Props) {
             <div className="w-full max-w-xs">
               <div className="h-1.5 w-full rounded-full bg-surface-raised overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-brass-400 transition-all duration-300 ease-out"
-                  style={{ width: `${justFinished ? 100 : progress}%` }}
+                  className="h-full rounded-full bg-brass-400 transition-all duration-500 ease-out"
+                  style={{ width: `${progress}%` }}
                 />
               </div>
+              {job?.totalBatches && job.totalBatches > 1 && !justFinished && (
+                <p className="text-[11px] text-text-faint mt-1.5 font-mono">
+                  Batch {job.completedBatches ?? 0} of {job.totalBatches}
+                </p>
+              )}
             </div>
 
             <div>
-              <p className="text-sm text-text font-medium">
-                {justFinished ? 'Done!' : stageLabel}
-              </p>
+              <p className="text-sm text-text font-medium">{stageLabel}</p>
               <p className="text-xs text-text-faint mt-1 max-w-xs">
                 {justFinished
-                  ? `Taking you to ${selected?.fullName}…`
-                  : `Analyzing ${selected?.fullName} — larger repos can take a few minutes.`}
+                  ? `Taking you to ${job?.repoFullName ?? selected?.fullName}…`
+                  : `Analyzing ${job?.repoFullName ?? selected?.fullName} — larger repos can take a few minutes due to the free-tier AI rate limit.`}
               </p>
             </div>
           </div>
@@ -231,10 +227,10 @@ export default function ImportGithubModal({ onClose }: Props) {
               </p>
               <button
                 className="btn-primary"
-                disabled={!selected}
-                onClick={() => importMutation.mutate()}
+                disabled={!selected || startMutation.isPending}
+                onClick={() => startMutation.mutate()}
               >
-                Import
+                {startMutation.isPending ? 'Starting…' : 'Import'}
               </button>
             </div>
           </>
