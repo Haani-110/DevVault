@@ -11,9 +11,14 @@ import { UpdateNoteDto } from './dto/update-note.dto';
 export class NotesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(userId: string) {
+  list(userId: string, projectId?: string) {
     return this.prisma.note.findMany({
-      where: { userId, isArchived: false },
+      where: {
+        userId,
+        isArchived: false,
+        ...(projectId !== undefined && { projectId: projectId || null }),
+      },
+      include: { project: { select: { id: true, name: true, color: true } } },
       orderBy: [{ isPinned: 'desc' }, { updatedAt: 'desc' }],
     });
   }

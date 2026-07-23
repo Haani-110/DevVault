@@ -19,9 +19,20 @@ export interface AiSnippetResult {
   tags: string[];
 }
 
+export type AiTaskStatus = 'BACKLOG' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE';
+export type AiTaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+
+export interface AiTaskResult {
+  title: string;
+  description?: string;
+  status: AiTaskStatus;
+  priority: AiTaskPriority;
+}
+
 export interface AiRepoAnalysis {
   notes: AiNoteResult[];
   snippets: AiSnippetResult[];
+  tasks: AiTaskResult[];
 }
 
 // Groq's OpenAI-compatible chat completions endpoint.
@@ -33,7 +44,7 @@ const MODEL = 'llama-3.3-70b-versatile';
 // account/org — and `max_tokens` reserves that much against the cap up front,
 // regardless of how much output is actually used. Keeping this modest leaves
 // real headroom for the input tokens in the same request.
-const MAX_OUTPUT_TOKENS = 3000;
+const MAX_OUTPUT_TOKENS = 3500;
 
 // Retry transient failures (rate limits, momentary 5xx) automatically so a
 // single click on "Import" succeeds without the user needing to retry by hand.
@@ -134,6 +145,9 @@ Respond with ONLY a single JSON object (no markdown fences, no prose before or a
   ],
   "snippets": [
     { "title": string, "description": string, "code": string, "language": string, "tags": string[] }
+  ],
+  "tasks": [
+    { "title": string, "description": string, "status": "BACKLOG" | "IN_PROGRESS" | "IN_REVIEW" | "DONE", "priority": "LOW" | "MEDIUM" | "HIGH" | "URGENT" }
   ]
 }
 
@@ -143,6 +157,12 @@ Rules:
 - "snippets": extract only genuinely reusable pieces (utility functions, hooks, config patterns, middleware, etc.) — not entire files verbatim. Keep each snippet focused and under ~40 lines. It's fine to return an empty array if nothing is genuinely reusable.
 - "language" should be a lowercase identifier like "typescript", "javascript", "python", "css", "json".
 - Keep "tags" short (1-4 words each), lowercase, relevant to topic/technology.
+- "tasks": extract genuine, actionable follow-up work you can actually see evidence for in this code — TODO/FIXME comments, obviously incomplete/stubbed functions, missing error handling, or a clearly unfinished feature. Do NOT invent generic busywork ("write tests", "add documentation") unless the code specifically signals it's needed. It's fine to return an empty array if you don't see genuine signals.
+- For each task's "status", use only what the code itself honestly shows you — you cannot know a team's real workflow state, so infer conservatively from code completeness:
+  - "DONE" — only if the described functionality appears fully implemented and working in what you can see.
+  - "IN_PROGRESS" — the code is partially implemented, has a stub, or a TODO mid-function suggesting active unfinished work.
+  - "BACKLOG" — a TODO/FIXME comment describing work not yet started, or a gap you noticed but isn't begun.
+  - "IN_REVIEW" — only use this if the code itself contains an explicit signal of that (e.g. a comment mentioning a pending review/PR) — otherwise avoid guessing this status.
 - Do not invent information that isn't supported by the provided file contents.
 - Respond with valid JSON only.`;
 
@@ -219,11 +239,27 @@ Rules:
 
   private parseJson(raw: string): AiRepoAnalysis {
     const cleaned = raw.replace(/^```json\s*|\s*```$/g, '').trim();
+    const VALID_STATUSES = ['BACKLOG', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'];
+    const VALID_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
     try {
       const parsed = JSON.parse(cleaned);
+      const tasks = Array.isArray(parsed.tasks)
+        ? parsed.tasks
+            .filter((t: any) => t && typeof t.title === 'string' && t.title.trim())
+            .map((t: any) => ({
+              title: t.title,
+              description: typeof t.description === 'string' ? t.description : undefined,
+              // Fall back to safe defaults if the model returns something outside
+              // the known enum — better than crashing the whole import on a
+              // malformed value from one batch.
+              status: VALID_STATUSES.includes(t.status) ? t.status : 'BACKLOG',
+              priority: VALID_PRIORITIES.includes(t.priority) ? t.priority : 'MEDIUM',
+            }))
+        : [];
       return {
         notes: Array.isArray(parsed.notes) ? parsed.notes : [],
         snippets: Array.isArray(parsed.snippets) ? parsed.snippets : [],
+        tasks,
       };
     } catch (err) {
       this.logger.error('Failed to parse AI response as JSON', err as Error);

@@ -13,6 +13,7 @@ interface Props {
   onToggleArchive: (id: string) => void;
   onEdit: (note: Note) => void;
   onDelete: (id: string) => void;
+  onPreview?: (note: Note) => void;
 }
 
 /** Strip common markdown syntax for plain-text preview */
@@ -46,16 +47,23 @@ export default function NoteCard({
   onToggleArchive,
   onEdit,
   onDelete,
+  onPreview,
 }: Props) {
   const preview = stripMarkdown(note.content);
   const words   = wordCount(note.content);
 
   return (
     <Tilt3D strength={7}>
-      <div className="card p-4 flex flex-col gap-3 hover:border-brass-400/30 transition-colors group h-full">
+      <div
+        className="card p-4 flex flex-col gap-3 hover:border-brass-400/30 transition-colors group h-full cursor-pointer"
+        onClick={() => onPreview?.(note)}
+      >
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-medium text-sm text-text line-clamp-1">{note.title}</h3>
-          <div className="flex items-center gap-1 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+          <div
+            className="flex items-center gap-1 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               onClick={() => onTogglePin(note.id)}
               aria-label={note.isPinned ? 'Unpin note' : 'Pin note'}
@@ -105,7 +113,20 @@ export default function NoteCard({
         </p>
 
         <div className="flex items-center justify-between mt-auto pt-1">
-          <div className="flex gap-1.5 flex-wrap">
+          <div className="flex gap-1.5 flex-wrap items-center">
+            {note.project && (
+              <span
+                className="text-[10px] font-medium px-1.5 py-0.5 rounded-full border truncate max-w-[110px]"
+                style={{
+                  color: note.project.color,
+                  borderColor: `${note.project.color}55`,
+                  backgroundColor: `${note.project.color}15`,
+                }}
+                title={note.project.name}
+              >
+                {note.project.name}
+              </span>
+            )}
             {note.tags.slice(0, 3).map((tag) => (
               <Badge key={tag} tone="muted">#{tag}</Badge>
             ))}

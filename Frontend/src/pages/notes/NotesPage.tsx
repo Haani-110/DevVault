@@ -5,9 +5,11 @@ import toast from 'react-hot-toast';
 import NoteCard from '@/components/notes/NoteCard';
 import NewNoteModal from '@/components/notes/NewNoteModal';
 import EditNoteModal from '@/components/notes/EditNoteModal';
+import NotePreviewModal from '@/components/notes/NotePreviewModal';
 import EmptyState from '@/components/ui/EmptyState';
 import Skeleton from '@/components/ui/Skeleton';
 import { notesService } from '@/services/notesService';
+import { projectsService } from '@/services/projectsService';
 import type { Note } from '@/types';
 
 type FilterTab = 'all' | 'pinned' | 'favorites' | 'archived';
@@ -18,10 +20,17 @@ export default function NotesPage() {
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [showModal, setShowModal] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const [previewingNote, setPreviewingNote] = useState<Note | null>(null);
+  const [projectFilter, setProjectFilter] = useState('');
 
   const { data: notes, isLoading } = useQuery({
     queryKey: ['notes'],
-    queryFn: notesService.list,
+    queryFn: () => notesService.list(),
+  });
+
+  const { data: projects } = useQuery({
+    queryKey: ['projects'],
+    queryFn: projectsService.list,
   });
 
   const filtered = useMemo(() => {
@@ -37,6 +46,10 @@ export default function NotesPage() {
       if (activeTab === 'favorites') result = result.filter((n) => n.isFavorite);
     }
 
+    if (projectFilter) {
+      result = result.filter((n) => n.projectId === projectFilter);
+    }
+
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(
@@ -47,7 +60,7 @@ export default function NotesPage() {
       );
     }
     return result;
-  }, [notes, search, activeTab]);
+  }, [notes, search, activeTab, projectFilter]);
 
   const archivedCount = useMemo(() => notes?.filter((n) => n.isArchived).length ?? 0, [notes]);
   const activeNotes = useMemo(() => notes?.filter((n) => !n.isArchived) ?? [], [notes]);
@@ -110,6 +123,18 @@ export default function NotesPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          {projects && projects.length > 0 && (
+            <select
+              className="input w-full sm:w-40"
+              value={projectFilter}
+              onChange={(e) => setProjectFilter(e.target.value)}
+            >
+              <option value="">All projects</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          )}
           {activeTab !== 'archived' && (
             <button className="btn-primary w-full sm:w-auto justify-center" onClick={() => setShowModal(true)}>
               <FiPlus size={15} /> New note
@@ -185,6 +210,7 @@ export default function NotesPage() {
               onToggleArchive={(id) => handleToggleArchive(id, note.isArchived)}
               onEdit={setEditingNote}
               onDelete={handleDelete}
+              onPreview={setPreviewingNote}
             />
           ))}
         </div>
@@ -201,6 +227,23 @@ export default function NotesPage() {
           note={editingNote}
           onClose={() => setEditingNote(null)}
           onSave={handleEdit}
+        />
+      )}
+      {previewingNote && (
+        <NotePreviewModal
+          note={previewingNote}
+          onClose={() => setPreviewingNote(null)}
+          onEdit={(note) => {
+            setPreviewingNote(null);
+            setEditingNote(note);
+          }}
+          onTogglePin={handleTogglePin}
+          onToggleFavorite={handleToggleFavorite}
+          onToggleArchive={(id) => handleToggleArchive(id, previewingNote.isArchived)}
+          onDelete={(id) => {
+            setPreviewingNote(null);
+            handleDelete(id);
+          }}
         />
       )}
     </div>

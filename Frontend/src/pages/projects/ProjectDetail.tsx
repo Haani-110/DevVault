@@ -1,12 +1,21 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FiArrowLeft, FiEdit2, FiX, FiCheckCircle, FiCircle, FiClock, FiAlertCircle } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit2, FiX, FiCheckCircle, FiCircle, FiClock, FiAlertCircle, FiFileText, FiCode, FiTrello } from 'react-icons/fi';
 import { projectsService } from '@/services/projectsService';
+import { notesService } from '@/services/notesService';
+import { snippetsService } from '@/services/snippetsService';
 import KanbanBoard from '@/components/projects/KanbanBoard';
+import NoteCard from '@/components/notes/NoteCard';
+import EditNoteModal from '@/components/notes/EditNoteModal';
+import NotePreviewModal from '@/components/notes/NotePreviewModal';
+import SnippetCard from '@/components/snippets/SnippetCard';
+import SnippetModal from '@/components/snippets/SnippetModal';
+import SnippetPreviewModal from '@/components/snippets/SnippetPreviewModal';
+import EmptyState from '@/components/ui/EmptyState';
 import Skeleton from '@/components/ui/Skeleton';
 import toast from 'react-hot-toast';
-import type { TaskStatus, TaskPriority, Project } from '@/types';
+import type { TaskStatus, TaskPriority, Project, Note, Snippet } from '@/types';
 
 const COLORS = ['#E8A33D', '#5EEAD4', '#F87171', '#818CF8', '#34D399', '#60A5FA', '#F472B6', '#A78BFA'];
 
@@ -22,6 +31,13 @@ export default function ProjectDetail() {
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', description: '', color: '' });
+  const [activeTab, setActiveTab] = useState<'board' | 'notes' | 'snippets'>('board');
+
+  const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const [previewingNote, setPreviewingNote] = useState<Note | null>(null);
+  const [showSnippetModal, setShowSnippetModal] = useState(false);
+  const [editingSnippet, setEditingSnippet] = useState<Snippet | null>(null);
+  const [previewingSnippet, setPreviewingSnippet] = useState<Snippet | null>(null);
 
   const { data: projects } = useQuery({ queryKey: ['projects'], queryFn: projectsService.list });
   const project = projects?.find((p) => p.id === id);
@@ -30,6 +46,18 @@ export default function ProjectDetail() {
     queryKey: ['tasks', id],
     queryFn: () => projectsService.listTasks(id!),
     enabled: !!id,
+  });
+
+  const { data: projectNotes, isLoading: notesLoading } = useQuery({
+    queryKey: ['notes', { projectId: id }],
+    queryFn: () => notesService.list(id),
+    enabled: !!id && activeTab === 'notes',
+  });
+
+  const { data: projectSnippets, isLoading: snippetsLoading } = useQuery({
+    queryKey: ['snippets', { projectId: id }],
+    queryFn: () => snippetsService.list(id),
+    enabled: !!id && activeTab === 'snippets',
   });
 
   function openEdit(p: Project) {
@@ -81,6 +109,54 @@ export default function ProjectDetail() {
     }
   }
 
+  function invalidateNotes() {
+    queryClient.invalidateQueries({ queryKey: ['notes', { projectId: id }] });
+    queryClient.invalidateQueries({ queryKey: ['notes'] });
+  }
+  function invalidateSnippets() {
+    queryClient.invalidateQueries({ queryKey: ['snippets', { projectId: id }] });
+    queryClient.invalidateQueries({ queryKey: ['snippets'] });
+  }
+
+  async function handleTogglePin(noteId: string) {
+    await notesService.togglePin(noteId);
+    invalidateNotes();
+  }
+  async function handleToggleNoteFavorite(noteId: string) {
+    await notesService.toggleFavorite(noteId);
+    invalidateNotes();
+  }
+  async function handleToggleArchive(noteId: string, currentlyArchived: boolean) {
+    await notesService.toggleArchive(noteId);
+    invalidateNotes();
+    toast.success(currentlyArchived ? 'Note restored' : 'Note archived');
+  }
+  async function handleDeleteNote(noteId: string) {
+    await notesService.delete(noteId);
+    invalidateNotes();
+    toast.success('Note deleted');
+  }
+  async function handleSaveNote(noteId: string, data: { title: string; content: string; tags: string[] }) {
+    await notesService.update(noteId, data);
+    invalidateNotes();
+    toast.success('Note updated');
+  }
+
+  async function handleToggleSnippetFavorite(snippetId: string) {
+    await snippetsService.toggleFavorite(snippetId);
+    invalidateSnippets();
+  }
+  async function handleDeleteSnippet(snippetId: string) {
+    await snippetsService.delete(snippetId);
+    invalidateSnippets();
+    toast.success('Snippet deleted');
+  }
+  async function handleUpdateSnippet(snippetId: string, input: Parameters<typeof snippetsService.update>[1]) {
+    await snippetsService.update(snippetId, input);
+    invalidateSnippets();
+    toast.success('Snippet updated');
+  }
+
   const totalTasks = tasks?.length ?? 0;
   const doneTasks = tasks?.filter((t) => t.status === 'DONE').length ?? 0;
   const pct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
@@ -127,6 +203,39 @@ export default function ProjectDetail() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-border">
+        <button
+          onClick={() => setActiveTab('board')}
+          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-1.5 ${
+            activeTab === 'board' ? 'border-brass-400 text-brass-400' : 'border-transparent text-text-muted hover:text-text'
+          }`}
+        >
+          <FiTrello size={13} /> Board
+          {totalTasks > 0 && <span className="text-xs text-text-faint font-mono">({totalTasks})</span>}
+        </button>
+        <button
+          onClick={() => setActiveTab('notes')}
+          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-1.5 ${
+            activeTab === 'notes' ? 'border-brass-400 text-brass-400' : 'border-transparent text-text-muted hover:text-text'
+          }`}
+        >
+          <FiFileText size={13} /> Notes
+          {projectNotes && projectNotes.length > 0 && <span className="text-xs text-text-faint font-mono">({projectNotes.length})</span>}
+        </button>
+        <button
+          onClick={() => setActiveTab('snippets')}
+          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-1.5 ${
+            activeTab === 'snippets' ? 'border-brass-400 text-brass-400' : 'border-transparent text-text-muted hover:text-text'
+          }`}
+        >
+          <FiCode size={13} /> Snippets
+          {projectSnippets && projectSnippets.length > 0 && <span className="text-xs text-text-faint font-mono">({projectSnippets.length})</span>}
+        </button>
+      </div>
+
+      {activeTab === 'board' && (
+        <>
       {/* Stats row */}
       {tasks && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -193,6 +302,64 @@ export default function ProjectDetail() {
             onDeleteTask={handleDeleteTask}
           />
         </>
+      )}
+        </>
+      )}
+
+      {activeTab === 'notes' && (
+        notesLoading ? (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40" />)}
+          </div>
+        ) : !projectNotes || projectNotes.length === 0 ? (
+          <EmptyState
+            icon={<FiFileText size={20} />}
+            title="No notes in this project yet"
+            description="Notes you create or import into this project will show up here."
+          />
+        ) : (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {projectNotes.map((note) => (
+              <NoteCard
+                key={note.id}
+                note={note}
+                onTogglePin={handleTogglePin}
+                onToggleFavorite={handleToggleNoteFavorite}
+                onToggleArchive={(noteId) => handleToggleArchive(noteId, note.isArchived)}
+                onEdit={setEditingNote}
+                onDelete={handleDeleteNote}
+                onPreview={setPreviewingNote}
+              />
+            ))}
+          </div>
+        )
+      )}
+
+      {activeTab === 'snippets' && (
+        snippetsLoading ? (
+          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-52" />)}
+          </div>
+        ) : !projectSnippets || projectSnippets.length === 0 ? (
+          <EmptyState
+            icon={<FiCode size={20} />}
+            title="No snippets in this project yet"
+            description="Snippets you create or import into this project will show up here."
+          />
+        ) : (
+          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {projectSnippets.map((snippet) => (
+              <SnippetCard
+                key={snippet.id}
+                snippet={snippet}
+                onEdit={(s) => { setEditingSnippet(s); setShowSnippetModal(true); }}
+                onToggleFavorite={handleToggleSnippetFavorite}
+                onDelete={handleDeleteSnippet}
+                onPreview={setPreviewingSnippet}
+              />
+            ))}
+          </div>
+        )
       )}
 
       {/* Edit project modal */}
@@ -261,6 +428,42 @@ export default function ProjectDetail() {
           </div>
           </div>
         </div>
+      )}
+
+      {editingNote && (
+        <EditNoteModal
+          note={editingNote}
+          onClose={() => setEditingNote(null)}
+          onSave={handleSaveNote}
+        />
+      )}
+      {previewingNote && (
+        <NotePreviewModal
+          note={previewingNote}
+          onClose={() => setPreviewingNote(null)}
+          onEdit={(note) => { setPreviewingNote(null); setEditingNote(note); }}
+          onTogglePin={handleTogglePin}
+          onToggleFavorite={handleToggleNoteFavorite}
+          onToggleArchive={(noteId) => handleToggleArchive(noteId, previewingNote.isArchived)}
+          onDelete={(noteId) => { setPreviewingNote(null); handleDeleteNote(noteId); }}
+        />
+      )}
+      {showSnippetModal && (
+        <SnippetModal
+          snippet={editingSnippet}
+          onClose={() => { setShowSnippetModal(false); setEditingSnippet(null); }}
+          onCreate={async () => {}}
+          onUpdate={handleUpdateSnippet}
+        />
+      )}
+      {previewingSnippet && (
+        <SnippetPreviewModal
+          snippet={previewingSnippet}
+          onClose={() => setPreviewingSnippet(null)}
+          onEdit={(s) => { setPreviewingSnippet(null); setEditingSnippet(s); setShowSnippetModal(true); }}
+          onToggleFavorite={handleToggleSnippetFavorite}
+          onDelete={(snippetId) => { setPreviewingSnippet(null); handleDeleteSnippet(snippetId); }}
+        />
       )}
     </div>
   );

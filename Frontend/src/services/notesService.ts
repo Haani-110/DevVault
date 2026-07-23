@@ -14,8 +14,8 @@ export interface UpdateNoteInput {
 }
 
 export const notesService = {
-  async list(): Promise<Note[]> {
-    const { data } = await api.get('/notes');
+  async list(projectId?: string): Promise<Note[]> {
+    const { data } = await api.get('/notes', { params: projectId !== undefined ? { projectId } : undefined });
     return data;
   },
 

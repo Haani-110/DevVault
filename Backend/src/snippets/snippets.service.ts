@@ -11,9 +11,13 @@ import { UpdateSnippetDto } from './dto/update-snippet.dto';
 export class SnippetsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(userId: string) {
+  list(userId: string, projectId?: string) {
     return this.prisma.snippet.findMany({
-      where: { userId },
+      where: {
+        userId,
+        ...(projectId !== undefined && { projectId: projectId || null }),
+      },
+      include: { project: { select: { id: true, name: true, color: true } } },
       orderBy: [{ isFavorite: 'desc' }, { updatedAt: 'desc' }],
     });
   }

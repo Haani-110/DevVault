@@ -60,6 +60,7 @@ export interface ImportJob {
     filesAnalyzed: number;
     notesCreated: number;
     snippetsCreated: number;
+    tasksCreated: number;
   };
   error?: string;
   createdAt: number;
@@ -329,7 +330,7 @@ export class ImportService {
       const analysis = await this.analyzeInBatches(jobId, repoInfo.full_name, files);
 
       job.status = 'saving';
-      job.stageLabel = 'Creating notes and snippets…';
+      job.stageLabel = 'Creating notes, snippets, and tasks…';
       job.progress = 92;
 
       const project = await this.prisma.project.create({
@@ -367,6 +368,19 @@ export class ImportService {
         });
       }
 
+      if (analysis.tasks.length > 0) {
+        await this.prisma.task.createMany({
+          data: analysis.tasks.map((t) => ({
+            userId,
+            projectId: project.id,
+            title: t.title,
+            description: t.description,
+            status: t.status,
+            priority: t.priority,
+          })),
+        });
+      }
+
       job.status = 'done';
       job.stageLabel = 'Done!';
       job.progress = 100;
@@ -375,6 +389,7 @@ export class ImportService {
         filesAnalyzed: files.length,
         notesCreated: analysis.notes.length,
         snippetsCreated: analysis.snippets.length,
+        tasksCreated: analysis.tasks.length,
       };
     } catch (err) {
       job.status = 'error';
@@ -403,7 +418,7 @@ export class ImportService {
       `Analyzing ${files.length} files across ${batches.length} batch(es) for ${repoFullName} (concurrency: ${BATCH_CONCURRENCY})`,
     );
 
-    const combined: AiRepoAnalysis = { notes: [], snippets: [] };
+    const combined: AiRepoAnalysis = { notes: [], snippets: [], tasks: [] };
 
     // Sequential on purpose — see ai.service.ts for why concurrency here is unsafe.
     for (let i = 0; i < batches.length; i++) {
@@ -411,6 +426,7 @@ export class ImportService {
       const result = await this.aiService.analyzeRepoFiles(repoFullName, batches[i]);
       combined.notes.push(...result.notes);
       combined.snippets.push(...result.snippets);
+      combined.tasks.push(...result.tasks);
 
       if (job) {
         job.completedBatches = i + 1;

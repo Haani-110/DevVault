@@ -18,8 +18,8 @@ export interface UpdateSnippetInput {
 }
 
 export const snippetsService = {
-  async list(): Promise<Snippet[]> {
-    const { data } = await api.get('/snippets');
+  async list(projectId?: string): Promise<Snippet[]> {
+    const { data } = await api.get('/snippets', { params: projectId !== undefined ? { projectId } : undefined });
     return data;
   },
 

@@ -11,6 +11,7 @@ interface Props {
   onEdit: (snippet: Snippet) => void;
   onToggleFavorite: (id: string) => void;
   onDelete: (id: string) => void;
+  onPreview?: (snippet: Snippet) => void;
 }
 
 const LANG_COLORS: Record<string, string> = {
@@ -25,10 +26,11 @@ const LANG_COLORS: Record<string, string> = {
   html:       'text-red-400',
 };
 
-export default function SnippetCard({ snippet, onEdit, onToggleFavorite, onDelete }: Props) {
+export default function SnippetCard({ snippet, onEdit, onToggleFavorite, onDelete, onPreview }: Props) {
   const [copied, setCopied] = useState(false);
 
-  async function handleCopy() {
+  async function handleCopy(e: React.MouseEvent) {
+    e.stopPropagation();
     await navigator.clipboard.writeText(snippet.code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -39,7 +41,10 @@ export default function SnippetCard({ snippet, onEdit, onToggleFavorite, onDelet
 
   return (
     <Tilt3D strength={7}>
-      <div className="card flex flex-col hover:border-brass-400/30 transition-colors group overflow-hidden h-full">
+      <div
+        className="card flex flex-col hover:border-brass-400/30 transition-colors group overflow-hidden h-full cursor-pointer"
+        onClick={() => onPreview?.(snippet)}
+      >
         {/* Header */}
         <div className="flex items-start justify-between gap-2 p-4 pb-2">
           <div className="min-w-0">
@@ -47,8 +52,24 @@ export default function SnippetCard({ snippet, onEdit, onToggleFavorite, onDelet
             {snippet.description && (
               <p className="text-xs text-text-muted mt-0.5 line-clamp-1">{snippet.description}</p>
             )}
+            {snippet.project && (
+              <span
+                className="inline-block mt-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full border truncate max-w-[140px]"
+                style={{
+                  color: snippet.project.color,
+                  borderColor: `${snippet.project.color}55`,
+                  backgroundColor: `${snippet.project.color}15`,
+                }}
+                title={snippet.project.name}
+              >
+                {snippet.project.name}
+              </span>
+            )}
           </div>
-          <div className="flex items-center gap-1 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+          <div
+            className="flex items-center gap-1 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               onClick={() => onToggleFavorite(snippet.id)}
               aria-label="Toggle favorite"

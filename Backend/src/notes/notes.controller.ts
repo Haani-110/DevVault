@@ -6,11 +6,12 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { NotesService } from './notes.service';
@@ -31,9 +32,10 @@ export class NotesController {
   constructor(private readonly notesService: NotesService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List all notes for the current user' })
-  list(@CurrentUser() user: AuthUser) {
-    return this.notesService.list(user.userId);
+  @ApiOperation({ summary: 'List all notes for the current user, optionally filtered by project' })
+  @ApiQuery({ name: 'projectId', required: false, description: 'Filter to one project. Pass an empty string to see only notes with no project.' })
+  list(@CurrentUser() user: AuthUser, @Query('projectId') projectId?: string) {
+    return this.notesService.list(user.userId, projectId);
   }
 
   @Post()

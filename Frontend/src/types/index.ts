@@ -20,6 +20,12 @@ export interface AuthTokens {
   refreshToken: string;
 }
 
+export interface ProjectRef {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface Note {
   id: string;
   title: string;
@@ -30,6 +36,8 @@ export interface Note {
   isArchived: boolean;
   updatedAt: string;
   createdAt: string;
+  projectId?: string | null;
+  project?: ProjectRef | null;
 }
 
 export type TaskStatus = 'BACKLOG' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE';
@@ -66,6 +74,8 @@ export interface Snippet {
   isFavorite: boolean;
   createdAt: string;
   updatedAt: string;
+  projectId?: string | null;
+  project?: ProjectRef | null;
 }
 
 export interface ActivityItem {

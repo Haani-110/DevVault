@@ -6,19 +6,28 @@ import EmptyState from '@/components/ui/EmptyState';
 import Skeleton from '@/components/ui/Skeleton';
 import SnippetCard from '@/components/snippets/SnippetCard';
 import SnippetModal from '@/components/snippets/SnippetModal';
+import SnippetPreviewModal from '@/components/snippets/SnippetPreviewModal';
 import { snippetsService } from '@/services/snippetsService';
+import { projectsService } from '@/services/projectsService';
 import type { Snippet } from '@/types';
 
 export default function SnippetsPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [langFilter, setLangFilter] = useState('');
+  const [projectFilter, setProjectFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingSnippet, setEditingSnippet] = useState<Snippet | null>(null);
+  const [previewingSnippet, setPreviewingSnippet] = useState<Snippet | null>(null);
 
   const { data: snippets, isLoading } = useQuery({
     queryKey: ['snippets'],
-    queryFn: snippetsService.list,
+    queryFn: () => snippetsService.list(),
+  });
+
+  const { data: projects } = useQuery({
+    queryKey: ['projects'],
+    queryFn: projectsService.list,
   });
 
   const languages = useMemo(() => {
@@ -30,6 +39,7 @@ export default function SnippetsPage() {
     if (!snippets) return [];
     let result = snippets;
     if (langFilter) result = result.filter((s) => s.language === langFilter);
+    if (projectFilter) result = result.filter((s) => s.projectId === projectFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(
@@ -40,7 +50,7 @@ export default function SnippetsPage() {
       );
     }
     return result;
-  }, [snippets, search, langFilter]);
+  }, [snippets, search, langFilter, projectFilter]);
 
   async function handleCreate(input: Parameters<typeof snippetsService.create>[0]) {
     await snippetsService.create(input);
@@ -94,6 +104,18 @@ export default function SnippetsPage() {
               ))}
             </select>
           )}
+          {projects && projects.length > 0 && (
+            <select
+              className="input w-full sm:w-40"
+              value={projectFilter}
+              onChange={(e) => setProjectFilter(e.target.value)}
+            >
+              <option value="">All projects</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          )}
           <button className="btn-primary w-full sm:w-auto justify-center" onClick={() => { setEditingSnippet(null); setShowModal(true); }}>
             <FiPlus size={15} /> New snippet
           </button>
@@ -132,6 +154,7 @@ export default function SnippetsPage() {
               onEdit={(s) => { setEditingSnippet(s); setShowModal(true); }}
               onToggleFavorite={handleToggleFavorite}
               onDelete={handleDelete}
+              onPreview={setPreviewingSnippet}
             />
           ))}
         </div>
@@ -143,6 +166,22 @@ export default function SnippetsPage() {
           onClose={() => { setShowModal(false); setEditingSnippet(null); }}
           onCreate={handleCreate}
           onUpdate={handleUpdate}
+        />
+      )}
+      {previewingSnippet && (
+        <SnippetPreviewModal
+          snippet={previewingSnippet}
+          onClose={() => setPreviewingSnippet(null)}
+          onEdit={(s) => {
+            setPreviewingSnippet(null);
+            setEditingSnippet(s);
+            setShowModal(true);
+          }}
+          onToggleFavorite={handleToggleFavorite}
+          onDelete={(id) => {
+            setPreviewingSnippet(null);
+            handleDelete(id);
+          }}
         />
       )}
     </div>
