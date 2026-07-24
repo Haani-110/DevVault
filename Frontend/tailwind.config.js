@@ -63,6 +63,10 @@ export default {
           '0%, 100%': { transform: 'rotate(0deg)' },
           '50%': { transform: 'rotate(8deg)' },
         },
+        'vault-spin': {
+          '0%': { transform: 'rotate(0deg)' },
+          '100%': { transform: 'rotate(360deg)' },
+        },
         'fade-up': {
           '0%': { opacity: 0, transform: 'translateY(6px)' },
           '100%': { opacity: 1, transform: 'translateY(0)' },
@@ -71,6 +75,7 @@ export default {
       animation: {
         'dial-tick': 'dial-tick 2.4s ease-in-out infinite',
         'fade-up': 'fade-up 0.35s ease-out both',
+        'vault-spin': 'vault-spin 240s linear infinite',
       },
     },
   },

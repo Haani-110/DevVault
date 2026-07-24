@@ -3,29 +3,33 @@
 @tailwind utilities;
 
 :root {
-  --color-ink: #0f1420;
-  --color-ink-soft: #141a2a;
-  --color-surface: #161c2c;
-  --color-surface-raised: #1d2438;
-  --color-surface-hover: #232b42;
-  --color-border: #262e42;
-  --color-border-soft: #1d2436;
-  --color-text: #e6e9f0;
-  --color-text-muted: #8890a4;
-  --color-text-faint: #5a6278;
+  /* Warm near-black — deliberately neutral/warm rather than navy-tinted,
+     so it reads as "black and gold" rather than "blue-gray and gold." */
+  --color-ink: #0b0a0a;
+  --color-ink-soft: #121110;
+  --color-surface: #171514;
+  --color-surface-raised: #1f1c1a;
+  --color-surface-hover: #292521;
+  --color-border: #2c2620;
+  --color-border-soft: #201c18;
+  --color-text: #f0ece3;
+  --color-text-muted: #a39a8a;
+  --color-text-faint: #6b6255;
 }
 
 html.light {
-  --color-ink: #f7f8fb;
-  --color-ink-soft: #ffffff;
-  --color-surface: #ffffff;
-  --color-surface-raised: #f2f4f9;
-  --color-surface-hover: #eceff5;
-  --color-border: #e4e7ef;
-  --color-border-soft: #edf0f6;
-  --color-text: #1a1f2e;
-  --color-text-muted: #5a6278;
-  --color-text-faint: #8890a4;
+  /* Warm ivory/cream, not stark white — carries the same gold-forward warmth
+     as dark mode instead of feeling like an unrelated generic light theme. */
+  --color-ink: #f6f1e7;
+  --color-ink-soft: #fffcf6;
+  --color-surface: #fffcf6;
+  --color-surface-raised: #f5efe1;
+  --color-surface-hover: #ede4d0;
+  --color-border: #e2d5b8;
+  --color-border-soft: #ece2ca;
+  --color-text: #251f16;
+  --color-text-muted: #6b6151;
+  --color-text-faint: #948a76;
 }
 
 @layer base {

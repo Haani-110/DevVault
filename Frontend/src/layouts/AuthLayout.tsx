@@ -1,31 +1,45 @@
 import { Outlet } from 'react-router-dom';
-import { Suspense, lazy } from 'react';
 import VaultDial from '@/components/ui/VaultDial';
-
-// Lazy-load the heavy Three.js scene so it doesn't block the auth form
-const AuthScene3D = lazy(() => import('@/components/3d/AuthScene3D'));
+import VaultHero from '@/components/ui/VaultHero';
 
 export default function AuthLayout() {
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-ink">
-      {/* Left panel — 3D animated vault scene */}
-      <div className="hidden lg:flex flex-col justify-between p-12 border-r border-border relative overflow-hidden">
-        {/* 3D canvas fills the whole panel */}
-        <Suspense fallback={<div className="absolute inset-0 dial-ticks opacity-30" />}>
-          <AuthScene3D />
-        </Suspense>
+      {/* Left panel — brand hero */}
+      <div className="hidden lg:flex flex-col justify-between p-12 border-r border-border relative overflow-hidden dial-ticks">
+        {/* Soft radial gold glow behind the dial */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'radial-gradient(ellipse 60% 55% at 68% 55%, rgba(232,163,61,0.10), transparent 70%)',
+          }}
+        />
 
-        {/* Gradient vignette so text stays readable over the 3D scene */}
+        {/* Large decorative vault dial, bleeding off the edge for an
+            asymmetric, art-directed composition rather than a centered stock effect */}
+        <div className="absolute -right-32 top-1/2 -translate-y-1/2 w-[560px] h-[560px] opacity-90 pointer-events-none">
+          <VaultHero />
+        </div>
+
+        {/* Subtle grain texture for tactility, over everything */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none mix-blend-overlay opacity-[0.05]">
+          <filter id="grain">
+            <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" />
+            <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.4 0" />
+          </filter>
+          <rect width="100%" height="100%" filter="url(#grain)" />
+        </svg>
+
+        {/* Vignette so text stays readable over the dial */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
             background:
-              'radial-gradient(ellipse at 20% 50%, transparent 30%, rgba(10,13,22,0.55) 80%), ' +
-              'linear-gradient(to right, rgba(10,13,22,0.15) 0%, rgba(10,13,22,0.0) 100%)',
+              'linear-gradient(to right, rgba(11,10,10,0.55) 0%, rgba(11,10,10,0.15) 45%, transparent 70%)',
           }}
         />
 
-        {/* Text content — sits above the canvas */}
+        {/* Text content */}
         <div className="relative flex items-center gap-2.5 z-10">
           <VaultDial size={28} />
           <span className="font-display font-semibold tracking-tight">
@@ -39,8 +53,8 @@ export default function AuthLayout() {
             <br /> locked in one place.
           </h1>
           <p className="text-text-muted text-sm leading-relaxed">
-            Notes, snippets, projects, API collections and credentials — centralized,
-            encrypted, and built for how developers actually work.
+            Notes, snippets, and projects — centralized and built for how
+            developers actually work.
           </p>
         </div>
 

@@ -1,0 +1,1 @@
+DELETE THIS FILE: Frontend/src/components/3d/AuthScene3D.tsx (and the empty 3d/ folder if nothing else is in it)
