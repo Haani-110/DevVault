@@ -59,16 +59,22 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="font-display text-2xl font-semibold">
-            {greeting}, {user?.username?.split('.')[0] ?? 'developer'} 👋
-          </h1>
+      <div className="flex items-start justify-between gap-4 flex-wrap relative">
+        <div className="absolute -left-1 -top-3 w-20 h-20 dial-ticks opacity-[0.12] pointer-events-none hidden sm:block" />
+        <div className="relative">
+          <div className="flex items-center gap-2.5">
+            <h1 className="font-display text-2xl font-semibold">
+              {greeting}, {user?.username?.split('.')[0] ?? 'developer'} 👋
+            </h1>
+            <span className="hidden sm:inline-block text-[10px] font-mono tracking-wide text-text-faint border border-border rounded-full px-2 py-0.5">
+              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
+          </div>
           <p className="text-sm text-text-muted mt-1">
             Here's what's happening across your vault today.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 relative">
           <Link to="/notes" className="btn-ghost text-xs py-1.5 px-3">
             New note <FiArrowRight size={13} />
           </Link>
@@ -146,15 +152,15 @@ export default function Dashboard() {
         </div>
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Notes" value={data?.totalNotes ?? 0} icon={FiFileText} to="/notes" color="brass" />
-          <StatCard label="Snippets" value={data?.totalSnippets ?? 0} icon={FiCode} to="/snippets" color="violet" />
-          <StatCard label="Projects" value={data?.totalProjects ?? 0} icon={FiFolder} to="/projects" color="mint" />
+          <StatCard label="Notes" value={data?.totalNotes ?? 0} icon={FiFileText} to="/notes" />
+          <StatCard label="Snippets" value={data?.totalSnippets ?? 0} icon={FiCode} to="/snippets" />
+          <StatCard label="Projects" value={data?.totalProjects ?? 0} icon={FiFolder} to="/projects" />
           <StatCard
             label="Pending tasks"
             value={pendingTasks}
             icon={FiCheckSquare}
             sub={data && data.totalTasks > 0 ? `${completionPct}% completed` : 'No tasks yet'}
-            color="red"
+            accent="attention"
           />
         </div>
       )}

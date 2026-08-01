@@ -1,21 +1,42 @@
 import { NavLink } from 'react-router-dom';
 import clsx from 'clsx';
-import { FiGrid, FiFileText, FiFolder, FiCode, FiSend, FiLock, FiSettings, FiX } from 'react-icons/fi';
+import { FiGrid, FiFileText, FiFolder, FiCode, FiSend, FiSettings, FiX } from 'react-icons/fi';
 import VaultDial from '@/components/ui/VaultDial';
 import Badge from '@/components/ui/Badge';
 
-const navItems: {
+interface NavItem {
   to: string;
   label: string;
   icon: any;
   soon?: boolean;
-}[] = [
-  { to: '/dashboard', label: 'Dashboard', icon: FiGrid },
-  { to: '/notes', label: 'Notes', icon: FiFileText },
-  { to: '/snippets', label: 'Snippets', icon: FiCode },
-  { to: '/projects', label: 'Projects', icon: FiFolder },
-  { to: '/collections', label: 'API Collections', icon: FiSend },
-  { to: '/vault', label: 'Password Vault', icon: FiLock },
+}
+
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+// Grouped into sections (rather than one flat list) — reads more like an
+// organized ledger/directory than a generic sidebar menu.
+const navGroups: NavGroup[] = [
+  {
+    label: 'Workspace',
+    items: [{ to: '/dashboard', label: 'Dashboard', icon: FiGrid }],
+  },
+  {
+    label: 'Library',
+    items: [
+      { to: '/notes', label: 'Notes', icon: FiFileText },
+      { to: '/snippets', label: 'Snippets', icon: FiCode },
+    ],
+  },
+  {
+    label: 'Projects',
+    items: [
+      { to: '/projects', label: 'Projects', icon: FiFolder },
+      { to: '/collections', label: 'API Collections', icon: FiSend, soon: true },
+    ],
+  },
 ];
 
 interface Props {
@@ -61,32 +82,49 @@ export default function Sidebar({ open = false, onClose }: Props) {
           </button>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navItems.map(({ to, label, icon: Icon, soon }) => (
-            <NavLink
-              key={to}
-              to={soon ? '#' : to}
-              onClick={(e) => {
-                if (soon) e.preventDefault();
-                else onClose?.();
-              }}
-              className={({ isActive }) =>
-                clsx(
-                  'flex items-center justify-between gap-2.5 px-3 py-2 rounded text-sm font-medium transition-colors',
-                  soon
-                    ? 'text-text-faint cursor-not-allowed'
-                    : isActive
-                      ? 'bg-brass-400/10 text-brass-400'
-                      : 'text-text-muted hover:text-text hover:bg-surface-hover'
-                )
-              }
-            >
-              <span className="flex items-center gap-2.5">
-                <Icon size={16} />
-                {label}
-              </span>
-              {soon && <Badge tone="muted">Soon</Badge>}
-            </NavLink>
+        <nav className="flex-1 px-3 py-4 overflow-y-auto">
+          {navGroups.map((group, i) => (
+            <div key={group.label} className={i > 0 ? 'mt-5' : ''}>
+              <p className="px-3 mb-1.5 text-[10px] font-semibold tracking-[0.12em] uppercase text-text-faint">
+                {group.label}
+              </p>
+              <div className="space-y-0.5">
+                {group.items.map(({ to, label, icon: Icon, soon }) => (
+                  <NavLink
+                    key={to}
+                    to={soon ? '#' : to}
+                    onClick={(e) => {
+                      if (soon) e.preventDefault();
+                      else onClose?.();
+                    }}
+                    className={({ isActive }) =>
+                      clsx(
+                        'relative flex items-center justify-between gap-2.5 pl-3.5 pr-3 py-2 rounded text-sm font-medium transition-colors',
+                        soon
+                          ? 'text-text-faint cursor-not-allowed'
+                          : isActive
+                            ? 'bg-brass-400/10 text-brass-400'
+                            : 'text-text-muted hover:text-text hover:bg-surface-hover'
+                      )
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        {/* Ledger-tab style active indicator, instead of just a background tint */}
+                        {isActive && !soon && (
+                          <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-brass-400" />
+                        )}
+                        <span className="flex items-center gap-2.5">
+                          <Icon size={16} />
+                          {label}
+                        </span>
+                        {soon && <Badge tone="muted">Soon</Badge>}
+                      </>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
 
@@ -96,15 +134,20 @@ export default function Sidebar({ open = false, onClose }: Props) {
             onClick={() => onClose?.()}
             className={({ isActive }) =>
               clsx(
-                'flex items-center gap-2.5 px-3 py-2 rounded text-sm font-medium transition-colors',
+                'relative flex items-center gap-2.5 pl-3.5 pr-3 py-2 rounded text-sm font-medium transition-colors',
                 isActive
                   ? 'bg-brass-400/10 text-brass-400'
                   : 'text-text-muted hover:text-text hover:bg-surface-hover'
               )
             }
           >
-            <FiSettings size={16} />
-            Settings
+            {({ isActive }) => (
+              <>
+                {isActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-brass-400" />}
+                <FiSettings size={16} />
+                Settings
+              </>
+            )}
           </NavLink>
         </div>
       </aside>

@@ -15,7 +15,6 @@ import ProjectsPage from '@/pages/projects/ProjectsPage';
 import ProjectDetail from '@/pages/projects/ProjectDetail';
 import SnippetsPage from '@/pages/snippets/SnippetsPage';
 import CollectionsPage from '@/pages/collections/CollectionsPage';
-import PasswordVaultPage from '@/pages/vault/PasswordVaultPage';
 import NotFound from '@/pages/NotFound';
 
 export default function App() {
@@ -38,7 +37,6 @@ export default function App() {
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/collections" element={<CollectionsPage />} />
-          <Route path="/vault" element={<PasswordVaultPage />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Route>
