@@ -15,7 +15,7 @@ export default function AuthLayout() {
         {/* Ambient molten-gold background wash — subtle, slow, monochrome.
             Falls back to nothing while loading; the static radial glow below
             already covers that gap so there's no visible pop-in. */}
-        <div className="absolute inset-0 pointer-events-none opacity-40">
+        <div className="absolute inset-0 pointer-events-none opacity-85">
           <Suspense fallback={null}>
             <ColorBends />
           </Suspense>
