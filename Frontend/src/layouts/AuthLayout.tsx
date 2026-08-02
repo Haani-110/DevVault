@@ -1,12 +1,26 @@
+import { Suspense, lazy } from 'react';
 import { Outlet } from 'react-router-dom';
 import VaultDial from '@/components/ui/VaultDial';
 import VaultHero from '@/components/ui/VaultHero';
+
+// Lazy-loaded: this pulls in three.js, a genuinely heavy dependency, so it
+// shouldn't block the initial page paint or the JS the actual login form needs.
+const ColorBends = lazy(() => import('@/components/ui/ColorBends'));
 
 export default function AuthLayout() {
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-ink">
       {/* Left panel — brand hero */}
       <div className="hidden lg:flex flex-col justify-between p-12 border-r border-border relative overflow-hidden dial-ticks">
+        {/* Ambient molten-gold background wash — subtle, slow, monochrome.
+            Falls back to nothing while loading; the static radial glow below
+            already covers that gap so there's no visible pop-in. */}
+        <div className="absolute inset-0 pointer-events-none opacity-40">
+          <Suspense fallback={null}>
+            <ColorBends />
+          </Suspense>
+        </div>
+
         {/* Soft radial gold glow behind the dial */}
         <div
           className="absolute inset-0 pointer-events-none"
