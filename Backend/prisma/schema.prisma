@@ -7,6 +7,115 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id             String          @id @default(cuid())
+  email          String          @unique
+  username       String          @unique
+  passwordHash   String?
+  avatarUrl      String?
+  bio            String?
+  location       String?
+  website        String?
+  githubUrl      String?
+  linkedinUrl    String?
+  role           Role            @default(DEVELOPER)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  notes          Note[]
+  oauthAccounts  OAuthAccount[]
+  passwordResets PasswordReset[]
+  projects       Project[]
+  snippets       Snippet[]
+  tasks          Task[]
+}
+
+model Note {
+  id         String   @id @default(cuid())
+  userId     String
+  title      String
+  content    String
+  tags       String[]
+  isPinned   Boolean  @default(false)
+  isFavorite Boolean  @default(false)
+  isArchived Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  projectId  String?
+  project    Project? @relation(fields: [projectId], references: [id])
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Project {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  color       String    @default("#6366f1")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  sourceRepo  String?
+  notes       Note[]
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snippets    Snippet[]
+  tasks       Task[]
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  projectId   String
+  userId      String
+  title       String
+  description String?
+  status      TaskStatus   @default(BACKLOG)
+  priority    TaskPriority @default(MEDIUM)
+  dueDate     DateTime?
+  assignee    String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id])
+}
+
+model OAuthAccount {
+  id           String   @id @default(cuid())
+  userId       String
+  provider     String
+  providerUid  String
+  accessToken  String?
+  refreshToken String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUid])
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Snippet {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  code        String
+  language    String   @default("plaintext")
+  tags        String[]
+  isFavorite  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  projectId   String?
+  project     Project? @relation(fields: [projectId], references: [id])
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 enum Role {
   ADMIN
   DEVELOPER
@@ -25,113 +134,4 @@ enum TaskPriority {
   MEDIUM
   HIGH
   URGENT
-}
-
-model User {
-  id           String     @id @default(cuid())
-  email        String     @unique
-  username     String     @unique
-  passwordHash  String?
-  avatarUrl     String?
-  bio          String?
-  location     String?
-  website      String?
-  githubUrl    String?
-  linkedinUrl  String?
-  role         Role       @default(DEVELOPER)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  notes          Note[]
-  projects       Project[]
-  tasks          Task[]
-  snippets       Snippet[]
-  passwordResets PasswordReset[]
-  oauthAccounts  OAuthAccount[]
-}
-
-model Note {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  projectId  String?
-  project    Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  title      String
-  content    String
-  tags       String[]
-  isPinned   Boolean  @default(false)
-  isFavorite Boolean  @default(false)
-  isArchived Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
-
-model Project {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name        String
-  description String?
-  color       String   @default("#6366f1")
-  sourceRepo  String?  // e.g. "owner/repo" if this project was imported from GitHub
-  tasks       Task[]
-  notes       Note[]
-  snippets    Snippet[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model Task {
-  id          String       @id @default(cuid())
-  projectId   String
-  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  userId      String
-  user        User         @relation(fields: [userId], references: [id])
-  title       String
-  description String?
-  status      TaskStatus   @default(BACKLOG)
-  priority    TaskPriority @default(MEDIUM)
-  dueDate     DateTime?
-  assignee    String?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-}
-
-model OAuthAccount {
-  id           String   @id @default(cuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  provider     String
-  providerUid  String
-  accessToken  String?
-  refreshToken String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@unique([provider, providerUid])
-}
-
-model PasswordReset {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String   @unique
-  expiresAt DateTime
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now())
-}
-
-model Snippet {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  projectId   String?
-  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  title       String
-  description String?
-  code        String
-  language    String   @default("plaintext")
-  tags        String[]
-  isFavorite  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 }

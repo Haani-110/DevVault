@@ -2,11 +2,20 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
+import { ExpressAdapter } from '@nestjs/platform-express';
+import express from 'express';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+let cachedServer: express.Express | undefined;
+
+async function createApp(): Promise<express.Express> {
+  const server = express();
+
+  const app = await NestFactory.create(
+    AppModule,
+    new ExpressAdapter(server),
+  );
 
   app.use(helmet());
 
@@ -40,12 +49,18 @@ async function bootstrap() {
 
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = process.env.PORT ?? 4000;
+  await app.init();
 
-  await app.listen(port);
-
-  console.log(`DevVault API running on http://localhost:${port}`);
-  console.log(`Swagger docs: http://localhost:${port}/api/docs`);
+  return server;
 }
 
-bootstrap();
+export default async function handler(
+  req: express.Request,
+  res: express.Response,
+) {
+  if (!cachedServer) {
+    cachedServer = await createApp();
+  }
+
+  return cachedServer(req, res);
+}
