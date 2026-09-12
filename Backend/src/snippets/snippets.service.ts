@@ -1,15 +1,19 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
+import { requireOwnedSnippet } from '../common/authz/ownership';
+import { ApiException } from '../common/errors/api-exception';
+import { ErrorCode } from '../common/errors/error-codes';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSnippetDto } from './dto/create-snippet.dto';
 import { UpdateSnippetDto } from './dto/update-snippet.dto';
 
+/** Authorization model is the same as NotesService — see common/authz/ownership.ts. */
 @Injectable()
 export class SnippetsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private static readonly listInclude = {
+    project: { select: { id: true, name: true, color: true } },
+  } as const;
 
   list(userId: string, projectId?: string) {
     return this.prisma.snippet.findMany({
@@ -17,7 +21,7 @@ export class SnippetsService {
         userId,
         ...(projectId !== undefined && { projectId: projectId || null }),
       },
-      include: { project: { select: { id: true, name: true, color: true } } },
+      include: SnippetsService.listInclude,
       orderBy: [{ isFavorite: 'desc' }, { updatedAt: 'desc' }],
     });
   }
@@ -36,9 +40,7 @@ export class SnippetsService {
   }
 
   async update(userId: string, snippetId: string, dto: UpdateSnippetDto) {
-    const snippet = await this.prisma.snippet.findUnique({ where: { id: snippetId } });
-    if (!snippet) throw new NotFoundException('Snippet not found');
-    if (snippet.userId !== userId) throw new ForbiddenException();
+    await requireOwnedSnippet(this.prisma, userId, snippetId);
 
     return this.prisma.snippet.update({
       where: { id: snippetId },
@@ -53,10 +55,7 @@ export class SnippetsService {
   }
 
   async toggleFavorite(userId: string, snippetId: string) {
-    const snippet = await this.prisma.snippet.findUnique({ where: { id: snippetId } });
-    if (!snippet) throw new NotFoundException('Snippet not found');
-    if (snippet.userId !== userId) throw new ForbiddenException();
-
+    const snippet = await requireOwnedSnippet(this.prisma, userId, snippetId);
     return this.prisma.snippet.update({
       where: { id: snippetId },
       data: { isFavorite: !snippet.isFavorite },
@@ -64,10 +63,9 @@ export class SnippetsService {
   }
 
   async remove(userId: string, snippetId: string) {
-    const snippet = await this.prisma.snippet.findUnique({ where: { id: snippetId } });
-    if (!snippet) throw new NotFoundException('Snippet not found');
-    if (snippet.userId !== userId) throw new ForbiddenException();
-
-    await this.prisma.snippet.delete({ where: { id: snippetId } });
+    const { count } = await this.prisma.snippet.deleteMany({ where: { id: snippetId, userId } });
+    if (count === 0) {
+      throw new ApiException(HttpStatus.NOT_FOUND, ErrorCode.SNIPPET_NOT_FOUND, 'Snippet not found');
+    }
   }
 }

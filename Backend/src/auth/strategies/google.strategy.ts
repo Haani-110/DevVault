@@ -1,7 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, VerifyCallback, Profile } from 'passport-google-oauth20';
+import { env } from '../../config/env';
 
+/**
+ * The object Passport's `validate` produces and `AuthService` consumes.
+ * `accessToken`/`refreshToken` are the *provider's* tokens, not DevVault's own
+ * session tokens — they are stored encrypted, used server-side, and no endpoint
+ * returns them.
+ */
 export interface OAuthProfile {
   provider: string;
   providerUid: string;
@@ -16,12 +23,9 @@ export interface OAuthProfile {
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor() {
     super({
-      clientID: (process.env.GOOGLE_CLIENT_ID ?? 'GOOGLE_CLIENT_ID_NOT_SET').trim(),
-      clientSecret: (process.env.GOOGLE_CLIENT_SECRET ?? 'GOOGLE_CLIENT_SECRET_NOT_SET').trim(),
-      callbackURL: (
-        process.env.GOOGLE_CALLBACK_URL ??
-        'http://localhost:4000/api/v1/auth/google/callback'
-      ).trim(),
+      clientID: env.google.clientId,
+      clientSecret: env.google.clientSecret,
+      callbackURL: env.google.callbackUrl,
       scope: ['email', 'profile'],
     });
   }

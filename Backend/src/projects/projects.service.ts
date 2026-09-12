@@ -1,57 +1,69 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { requireOwnedProject } from '../common/authz/ownership';
+import { ApiException } from '../common/errors/api-exception';
+import { ErrorCode } from '../common/errors/error-codes';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 
+/**
+ * Every method takes the authenticated `userId` and scopes its query with it —
+ * see `common/authz/ownership.ts` for why the ownership check lives inside the
+ * query rather than in an `if` afterwards.
+ */
 @Injectable()
 export class ProjectsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(userId: string) {
-    const projects = await this.prisma.project.findMany({
-      where: { userId },
-      orderBy: { updatedAt: 'desc' },
-      include: {
-        _count: { select: { tasks: true } },
-        tasks: { select: { status: true } },
-      },
-    });
+  /** Task counters the UI needs on every project; computed in one query. */
+  private static readonly include = {
+    _count: { select: { tasks: true } },
+    tasks: { select: { status: true } },
+  } satisfies Prisma.ProjectInclude;
 
-    return projects.map((p) => ({
-      id: p.id,
-      name: p.name,
-      description: p.description,
-      color: p.color,
-      taskCount: p._count.tasks,
-      completedCount: p.tasks.filter((t) => t.status === 'DONE').length,
-      updatedAt: p.updatedAt.toISOString(),
-    }));
-  }
-
-  async findOne(userId: string, projectId: string) {
-    const project = await this.prisma.project.findUnique({
-      where: { id: projectId },
-      include: {
-        _count: { select: { tasks: true } },
-        tasks: { select: { status: true } },
-      },
-    });
-    if (!project) throw new NotFoundException('Project not found');
-    if (project.userId !== userId) throw new ForbiddenException();
-
+  private static shape(project: {
+    id: string;
+    name: string;
+    description: string | null;
+    color: string;
+    sourceRepo: string | null;
+    updatedAt: Date;
+    _count: { tasks: number };
+    tasks: { status: string }[];
+  }) {
     return {
       id: project.id,
       name: project.name,
       description: project.description,
       color: project.color,
+      sourceRepo: project.sourceRepo,
       taskCount: project._count.tasks,
       completedCount: project.tasks.filter((t) => t.status === 'DONE').length,
       updatedAt: project.updatedAt.toISOString(),
     };
+  }
+
+  async list(userId: string) {
+    const projects = await this.prisma.project.findMany({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
+      include: ProjectsService.include,
+    });
+    return projects.map((p) => ProjectsService.shape(p));
+  }
+
+  async findOne(userId: string, projectId: string) {
+    // findFirst (not findUnique) so `userId` is part of the lookup: someone
+    // else's project must be indistinguishable from no project at all.
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, userId },
+      include: ProjectsService.include,
+    });
+    if (!project) {
+      throw new ApiException(HttpStatus.NOT_FOUND, ErrorCode.PROJECT_NOT_FOUND, 'Project not found');
+    }
+    return ProjectsService.shape(project);
   }
 
   async create(userId: string, dto: CreateProjectDto) {
@@ -63,11 +75,13 @@ export class ProjectsService {
         color: dto.color ?? '#6366f1',
       },
     });
+
     return {
       id: project.id,
       name: project.name,
       description: project.description,
       color: project.color,
+      sourceRepo: project.sourceRepo,
       taskCount: 0,
       completedCount: 0,
       updatedAt: project.updatedAt.toISOString(),
@@ -75,9 +89,7 @@ export class ProjectsService {
   }
 
   async update(userId: string, projectId: string, dto: UpdateProjectDto) {
-    const project = await this.prisma.project.findUnique({ where: { id: projectId } });
-    if (!project) throw new NotFoundException('Project not found');
-    if (project.userId !== userId) throw new ForbiddenException();
+    await requireOwnedProject(this.prisma, userId, projectId);
 
     const updated = await this.prisma.project.update({
       where: { id: projectId },
@@ -86,28 +98,20 @@ export class ProjectsService {
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.color !== undefined && { color: dto.color }),
       },
-      include: {
-        _count: { select: { tasks: true } },
-        tasks: { select: { status: true } },
-      },
+      include: ProjectsService.include,
     });
-
-    return {
-      id: updated.id,
-      name: updated.name,
-      description: updated.description,
-      color: updated.color,
-      taskCount: updated._count.tasks,
-      completedCount: updated.tasks.filter((t) => t.status === 'DONE').length,
-      updatedAt: updated.updatedAt.toISOString(),
-    };
+    return ProjectsService.shape(updated);
   }
 
+  /**
+   * `deleteMany` with the owner in the where clause instead of "check, then
+   * delete": the ownership test and the mutation are one statement, so there
+   * is no window in which the row could change hands.
+   */
   async remove(userId: string, projectId: string) {
-    const project = await this.prisma.project.findUnique({ where: { id: projectId } });
-    if (!project) throw new NotFoundException('Project not found');
-    if (project.userId !== userId) throw new ForbiddenException();
-
-    await this.prisma.project.delete({ where: { id: projectId } });
+    const { count } = await this.prisma.project.deleteMany({ where: { id: projectId, userId } });
+    if (count === 0) {
+      throw new ApiException(HttpStatus.NOT_FOUND, ErrorCode.PROJECT_NOT_FOUND, 'Project not found');
+    }
   }
 }

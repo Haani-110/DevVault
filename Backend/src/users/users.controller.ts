@@ -1,54 +1,18 @@
 import {
-  Controller,
-  Get,
-  Patch,
-  Delete,
   Body,
-  UseGuards,
+  Controller,
+  Delete,
+  Get,
   HttpCode,
   HttpStatus,
+  Patch,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { IsString, IsOptional, MaxLength } from 'class-validator';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UsersService } from './users.service';
-
-class UpdateProfileDto {
-  @IsString()
-  @IsOptional()
-  @MaxLength(40)
-  username?: string;
-
-  @IsString()
-  @IsOptional()
-  @MaxLength(300)
-  bio?: string;
-
-  @IsString()
-  @IsOptional()
-  @MaxLength(100)
-  location?: string;
-
-  @IsString()
-  @IsOptional()
-  @MaxLength(200)
-  website?: string;
-
-  @IsString()
-  @IsOptional()
-  @MaxLength(200)
-  githubUrl?: string;
-
-  @IsString()
-  @IsOptional()
-  @MaxLength(200)
-  linkedinUrl?: string;
-
-  @IsString()
-  @IsOptional()
-  avatarUrl?: string;
-}
 
 interface AuthUser {
   userId: string;
@@ -66,7 +30,9 @@ export class UsersController {
   @Get('me')
   @ApiOperation({ summary: 'Get current user profile' })
   getMe(@CurrentUser() user: AuthUser) {
-    return this.usersService.findById(user.userId);
+    // getProfile, not findById: findById also returns the timestamp the session
+    // checks are built on, and that is not a field any client needs.
+    return this.usersService.getProfile(user.userId);
   }
 
   @Patch('profile')

@@ -13,6 +13,7 @@ import {
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { ParseIdPipe } from '../common/pipes/parse-id.pipe';
 import { ProjectsService } from './projects.service';
 import { TasksService } from '../tasks/tasks.service';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -42,7 +43,7 @@ export class ProjectsController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a project by ID' })
-  findOne(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+  findOne(@CurrentUser() user: AuthUser, @Param('id', ParseIdPipe) id: string) {
     return this.projectsService.findOne(user.userId, id);
   }
 
@@ -56,7 +57,7 @@ export class ProjectsController {
   @ApiOperation({ summary: 'Update a project' })
   update(
     @CurrentUser() user: AuthUser,
-    @Param('id') id: string,
+    @Param('id', ParseIdPipe) id: string,
     @Body() dto: UpdateProjectDto,
   ) {
     return this.projectsService.update(user.userId, id, dto);
@@ -65,13 +66,13 @@ export class ProjectsController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a project and all its tasks' })
-  async remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+  async remove(@CurrentUser() user: AuthUser, @Param('id', ParseIdPipe) id: string) {
     await this.projectsService.remove(user.userId, id);
   }
 
   @Get(':id/tasks')
   @ApiOperation({ summary: 'List tasks for a project' })
-  listTasks(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+  listTasks(@CurrentUser() user: AuthUser, @Param('id', ParseIdPipe) id: string) {
     return this.tasksService.listByProject(user.userId, id);
   }
 }

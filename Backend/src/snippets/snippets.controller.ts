@@ -14,6 +14,7 @@ import {
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { ParseIdPipe } from '../common/pipes/parse-id.pipe';
 import { SnippetsService } from './snippets.service';
 import { CreateSnippetDto } from './dto/create-snippet.dto';
 import { UpdateSnippetDto } from './dto/update-snippet.dto';
@@ -48,7 +49,7 @@ export class SnippetsController {
   @ApiOperation({ summary: 'Update a snippet' })
   update(
     @CurrentUser() user: AuthUser,
-    @Param('id') id: string,
+    @Param('id', ParseIdPipe) id: string,
     @Body() dto: UpdateSnippetDto,
   ) {
     return this.snippetsService.update(user.userId, id, dto);
@@ -56,14 +57,14 @@ export class SnippetsController {
 
   @Patch(':id/favorite')
   @ApiOperation({ summary: 'Toggle favorite status of a snippet' })
-  toggleFavorite(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+  toggleFavorite(@CurrentUser() user: AuthUser, @Param('id', ParseIdPipe) id: string) {
     return this.snippetsService.toggleFavorite(user.userId, id);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a snippet' })
-  async remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+  async remove(@CurrentUser() user: AuthUser, @Param('id', ParseIdPipe) id: string) {
     await this.snippetsService.remove(user.userId, id);
   }
 }

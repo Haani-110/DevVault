@@ -1,28 +1,32 @@
 import {
-  Controller,
-  Post,
-  Get,
   Body,
+  Controller,
+  Get,
   HttpCode,
   HttpStatus,
-  UseGuards,
+  Post,
+  Query,
   Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { GoogleAuthGuard } from './guards/google-auth.guard';
-import { GithubAuthGuard } from './guards/github-auth.guard';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { frontendUrls } from '../config/env';
 import { AuthService } from './auth.service';
-import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { ForgotPasswordDto } from './dto/forgot-password.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
-import { ChangePasswordDto } from './dto/change-password.dto';
+import { GithubAuthGuard } from './guards/github-auth.guard';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { buildGithubAuthorizeUrl } from './strategies/github.strategy';
 import type { OAuthProfile } from './strategies/google.strategy';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { LoginDto } from './dto/login.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { RegisterDto } from './dto/register.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -30,6 +34,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({ summary: 'Register a new user' })
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
@@ -37,6 +42,9 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  // Password guessing is the one thing worth being slow/strict about; the
+  // global limit is per-IP anyway, which is exactly what a botnet bypasses.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiOperation({ summary: 'Login with email and password' })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
@@ -49,6 +57,11 @@ export class AuthController {
     return this.authService.refresh(dto.refreshToken);
   }
 
+  /**
+   * Stateless JWTs, so "logout" is the client dropping them — the endpoint
+   * exists so the UI has one thing to call and so adding a denylist later is
+   * a server change, not a client release.
+   */
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard)
@@ -62,13 +75,14 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Change password while logged in' })
+  @ApiOperation({ summary: 'Change password while logged in (invalidates older sessions)' })
   changePassword(@CurrentUser() user: { userId: string }, @Body() dto: ChangePasswordDto) {
     return this.authService.changePassword(user.userId, dto);
   }
 
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({ summary: 'Request a password reset email' })
   forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto);
@@ -76,6 +90,7 @@ export class AuthController {
 
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiOperation({ summary: 'Reset password using a valid token' })
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
@@ -94,9 +109,7 @@ export class AuthController {
   @UseGuards(GoogleAuthGuard)
   @ApiOperation({ summary: 'Google OAuth callback' })
   async googleCallback(@Req() req: Request, @Res() res: Response) {
-    const profile = req.user as OAuthProfile;
-    const tokens = await this.authService.findOrCreateOAuthUser(profile);
-    res.redirect(this.buildCallbackUrl(tokens));
+    return this.completeOAuthSignIn(res, req.user as OAuthProfile);
   }
 
   // ─── GitHub OAuth ──────────────────────────────────────────────────────────
@@ -113,56 +126,67 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({
     summary:
-      'Get a GitHub OAuth URL that connects GitHub to the CURRENT logged-in account (safe even if the GitHub email differs from this account\'s email) — used by "Connect GitHub" in Settings, instead of the plain sign-in route.',
+      'Get a GitHub OAuth URL that connects GitHub to the CURRENT logged-in account — ' +
+      'used by "Connect GitHub" in Settings, instead of the plain sign-in route.',
   })
   getGithubLinkUrl(@CurrentUser() user: { userId: string }) {
-    const state = this.authService.createLinkState(user.userId);
-    const clientId = (process.env.GITHUB_CLIENT_ID ?? '').trim();
-    const callbackUrl = (
-      process.env.GITHUB_CALLBACK_URL ?? 'http://localhost:4000/api/v1/auth/github/callback'
-    ).trim();
-    const scope = 'user:email repo';
-    const url =
-      `https://github.com/login/oauth/authorize` +
-      `?client_id=${encodeURIComponent(clientId)}` +
-      `&redirect_uri=${encodeURIComponent(callbackUrl)}` +
-      `&scope=${encodeURIComponent(scope)}` +
-      `&state=${encodeURIComponent(state)}`;
-    return { url };
+    // The state token is what lets the callback attach this GitHub account to
+    // the logged-in user by id, rather than by matching emails.
+    return { url: buildGithubAuthorizeUrl(this.authService.createLinkState(user.userId)) };
   }
 
   @Get('github/callback')
   @UseGuards(GithubAuthGuard)
   @ApiOperation({ summary: 'GitHub OAuth callback' })
-  async githubCallback(@Req() req: Request, @Res() res: Response) {
-    const profile = req.user as OAuthProfile;
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  async githubCallback(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Query('state') state?: string,
+  ) {
+    // The guard already redirected (and ended the response) if the provider
+    // rejected the attempt.
+    if (res.headersSent) return;
 
-    // If `state` decodes to a valid link-token, an already-logged-in user
-    // clicked "Connect GitHub" — attach this GitHub account to THEIR user
-    // (by userId, not by email match) rather than running normal sign-in
+    const profile = req.user as OAuthProfile;
+
+    // If `state` decodes to a valid link token, an already-logged-in user
+    // clicked "Connect GitHub" — attach this GitHub account to THEIR user (by
+    // userId, not by email match) rather than running normal sign-in
     // resolution, which could otherwise create/log into an unrelated account
     // if the GitHub email differs from the one they're already using.
-    const linkUserId = this.authService.verifyLinkState(req.query.state as string | undefined);
+    const linkUserId = this.authService.verifyLinkState(state);
     if (linkUserId) {
       try {
         await this.authService.linkOAuthAccount(linkUserId, profile);
-        return res.redirect(`${frontendUrl}/settings?github=linked`);
+        return res.redirect(`${frontendUrls[0]}/settings?github=linked`);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to link GitHub account';
-        return res.redirect(`${frontendUrl}/settings?github=error&message=${encodeURIComponent(message)}`);
+        return res.redirect(`${frontendUrls[0]}/settings?github=error&message=${encodeURIComponent(message)}`);
       }
     }
 
-    const tokens = await this.authService.findOrCreateOAuthUser(profile);
-    res.redirect(this.buildCallbackUrl(tokens));
+    return this.completeOAuthSignIn(res, profile);
   }
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
-  private buildCallbackUrl(tokens: { accessToken: string; refreshToken: string }): string {
-    const base =
-      process.env.FRONTEND_URL || "http://localhost:5173"
-    return `${base}/auth/callback?accessToken=${tokens.accessToken}&refreshToken=${tokens.refreshToken}`;
+  /**
+   * Finishes a provider sign-in.
+   *
+   * Tokens travel in the URL *fragment* (`#accessToken=…`), not the query
+   * string: fragments are never sent to a server, never appear in access logs
+   * and never leak through a `Referer` header, while still being readable by
+   * the SPA at `/auth/callback`. The callback page wipes them from history as
+   * soon as it has read them.
+   */
+  private async completeOAuthSignIn(res: Response, profile: OAuthProfile) {
+    if (res.headersSent) return;
+
+    const tokens = await this.authService.findOrCreateOAuthUser(profile);
+    const fragment = new URLSearchParams({
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    });
+    res.redirect(`${frontendUrls[0]}/auth/callback#${fragment.toString()}`);
   }
 }

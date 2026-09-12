@@ -1,12 +1,6 @@
 import { IsEnum } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-
-export enum TaskStatusEnum {
-  BACKLOG = 'BACKLOG',
-  IN_PROGRESS = 'IN_PROGRESS',
-  IN_REVIEW = 'IN_REVIEW',
-  DONE = 'DONE',
-}
+import { TaskStatusEnum } from './task-enums';
 
 export class MoveTaskDto {
   @ApiProperty({ enum: TaskStatusEnum })

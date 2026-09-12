@@ -12,6 +12,7 @@ import {
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { ParseIdPipe } from '../common/pipes/parse-id.pipe';
 import { TasksService } from './tasks.service';
 import { MoveTaskDto } from './dto/move-task.dto';
 import { CreateTaskDto } from './dto/create-task.dto';
@@ -33,7 +34,7 @@ export class TasksController {
   @ApiOperation({ summary: 'Create a task in a project' })
   create(
     @CurrentUser() user: AuthUser,
-    @Param('projectId') projectId: string,
+    @Param('projectId', ParseIdPipe) projectId: string,
     @Body() dto: CreateTaskDto,
   ) {
     return this.tasksService.create(user.userId, projectId, dto);
@@ -44,7 +45,7 @@ export class TasksController {
   @ApiOperation({ summary: 'Update task status (move on Kanban)' })
   async move(
     @CurrentUser() user: AuthUser,
-    @Param('id') id: string,
+    @Param('id', ParseIdPipe) id: string,
     @Body() dto: MoveTaskDto,
   ) {
     await this.tasksService.move(user.userId, id, dto);
@@ -53,7 +54,7 @@ export class TasksController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a task' })
-  async remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+  async remove(@CurrentUser() user: AuthUser, @Param('id', ParseIdPipe) id: string) {
     await this.tasksService.remove(user.userId, id);
   }
 }

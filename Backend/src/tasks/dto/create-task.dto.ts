@@ -1,19 +1,6 @@
-import { IsString, IsOptional, IsEnum, MinLength, MaxLength } from 'class-validator';
+import { IsEnum, IsISO8601, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-
-export enum TaskPriorityEnum {
-  LOW = 'LOW',
-  MEDIUM = 'MEDIUM',
-  HIGH = 'HIGH',
-  URGENT = 'URGENT',
-}
-
-export enum TaskStatusEnum {
-  BACKLOG = 'BACKLOG',
-  IN_PROGRESS = 'IN_PROGRESS',
-  IN_REVIEW = 'IN_REVIEW',
-  DONE = 'DONE',
-}
+import { TaskPriorityEnum, TaskStatusEnum } from './task-enums';
 
 export class CreateTaskDto {
   @ApiProperty({ example: 'Implement login page' })
@@ -24,6 +11,7 @@ export class CreateTaskDto {
 
   @ApiProperty({ example: 'Build the login form with validation', required: false })
   @IsString()
+  @MaxLength(2000)
   @IsOptional()
   description?: string;
 
@@ -37,8 +25,17 @@ export class CreateTaskDto {
   @IsOptional()
   status?: TaskStatusEnum;
 
+  // Date-only or full ISO 8601 — the Kanban "Add task" control sends `YYYY-MM-DD`
+  // from a date input, and `new Date('nonsense')` would otherwise become a
+  // 500 from Prisma rather than a 400 from validation.
   @ApiProperty({ example: '2025-12-31', required: false })
-  @IsString()
+  @IsISO8601({ strict: true })
   @IsOptional()
   dueDate?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @MaxLength(100)
+  @IsOptional()
+  assignee?: string;
 }

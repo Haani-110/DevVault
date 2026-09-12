@@ -1,14 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import sgMail from '@sendgrid/mail';
+import { env } from '../config/env';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private readonly from = process.env.FROM_EMAIL ?? 'noreply@devvault.app';
+  private readonly from = env.fromEmail;
   private readonly configured: boolean;
 
   constructor() {
-    const key = process.env.SENDGRID_API_KEY;
+    const key = env.sendgridApiKey;
     if (key) {
       sgMail.setApiKey(key);
       this.configured = true;

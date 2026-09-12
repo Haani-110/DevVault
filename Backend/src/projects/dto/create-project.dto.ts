@@ -1,4 +1,4 @@
-import { IsString, IsOptional, MinLength, MaxLength } from 'class-validator';
+import { IsHexColor, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateProjectDto {
@@ -10,11 +10,12 @@ export class CreateProjectDto {
 
   @ApiProperty({ example: 'Project description', required: false })
   @IsString()
+  @MaxLength(2000)
   @IsOptional()
   description?: string;
 
   @ApiProperty({ example: '#6366f1', required: false })
-  @IsString()
+  @IsHexColor()
   @IsOptional()
   color?: string;
 }

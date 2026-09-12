@@ -6,6 +6,13 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
+    // `esModuleInterop` is not cosmetic here: `import express from 'express'`
+    // and `import sgMail from '@sendgrid/mail'` both compile to a `.default`
+    // lookup that is `undefined` without it, so those modules throw the moment
+    // they are actually called (server.ts on its first request; the mailer on
+    // the first password-reset with a real API key). Nest's own starter config
+    // enables it; this one had the flag missing.
+    "esModuleInterop": true,
     "target": "ES2021",
     "sourceMap": true,
     "outDir": "./dist",
