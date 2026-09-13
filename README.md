@@ -1,152 +1,269 @@
 # DevVault
 
-**DevVault** is a developer productivity platform — one dashboard for the
-notes, code snippets, and project/task tracking a developer normally scatters
-across five different tools. It started as a Replit prototype and has since
-been split into a real, independently deployable frontend and backend.
+A developer productivity SaaS application for organizing projects, notes, snippets, and developer resources in one place.
 
-Live example deployment:
-- Frontend (Vercel): `https://<your-vercel-app>.vercel.app`
-- Backend (Railway): `https://<your-railway-app>.up.railway.app`
-- API docs (Swagger): `<backend-url>/api/docs`
+DevVault was built as a full-stack project to explore modern React and NestJS development, authentication, API design, database management, and AI-assisted development workflows.
 
-## Concept
+## Overview
 
-The core idea is a single "vault" a developer logs into every day that holds:
+DevVault provides a centralized workspace where developers can manage their technical knowledge and project resources.
 
-- **Notes** — markdown notes with tags, pinning, favorites, and archiving.
-- **Snippets** — reusable code snippets with language tagging, search, and favorites.
-- **Projects & Tasks** — lightweight project containers with a Kanban board
-  (Backlog → In Progress → In Review → Done) per project.
-- **Dashboard** — an at-a-glance summary of the above (counts, recent activity).
-- **Auth** — email/password with secure password reset via email, plus
-  "Sign in with Google" and "Sign in with GitHub" as one-click alternatives.
+### Features
 
-Two features are designed but not yet built:
-- **API Collections** (a lightweight Postman-style request organizer)
-- **Password Vault** (encrypted credential storage)
+- Project management
+- Developer notes
+- Code snippets
+- User authentication
+- Dashboard statistics
+- AI-assisted project note generation
+- REST API architecture
+- Persistent database storage
 
-Both currently render as "coming soon" screens in the frontend so the
-information architecture is visible even before the backend exists for them.
+## Tech Stack
 
-### Where this is heading: AI-assisted import
+### Frontend
 
-The next major feature in progress is **AI-assisted project import**: a user
-connects/imports a GitHub repository, and DevVault reads through the source
-files and uses the Claude API to automatically generate:
-- **Notes** summarizing what each module/file does, in plain English
-- **Snippets** — the genuinely reusable pieces of code worth keeping around
+- React 19
+- TypeScript
+- Vite
+- Tailwind CSS
+- React Router
+- Zustand
+- TanStack Query
+- Axios
+- React Hook Form
+- Zod
+- Framer Motion
+- Monaco Editor
 
-Both get attached to a new `Project` created for that import, so a repo you
-drop in becomes a pre-populated DevVault workspace instead of a blank one.
-This relies on GitHub OAuth already storing a usable access token per user
-(see `OAuthAccount` in the Prisma schema) — no separate GitHub App or extra
-auth flow is needed to read a user's own repos.
+### Backend
 
-## Project structure
+- NestJS 11
+- TypeScript
+- Prisma
+- PostgreSQL
+- Swagger
+- JWT Authentication
 
+### AI
+
+- Groq API
+
+## Architecture
+
+DevVault follows a separate frontend and backend architecture.
+
+```text
+Frontend (React + TypeScript)
+        │
+        │ REST API
+        ▼
+Backend (NestJS)
+        │
+        │ Prisma ORM
+        ▼
+PostgreSQL Database
+        │
+        └── AI integrations
 ```
-/
-├── Frontend/   React 19 + Vite + TypeScript — see Frontend/README.md
-├── Backend/    NestJS 11 + Prisma + PostgreSQL — see Backend/README.md
-└── package.json  (root convenience scripts)
+
+The frontend communicates with the backend through REST APIs, while the backend handles authentication, validation, business logic, and database operations.
+
+## Core Features
+
+### Authentication
+
+- User registration and login
+- JWT-based authentication
+- Protected application routes
+- Persistent authentication state
+- Automatic token refresh handling
+
+### Projects
+
+Create and manage development projects from a centralized dashboard.
+
+Projects provide a workspace for organizing related developer resources.
+
+### Notes
+
+Create and organize technical notes with support for project association and archiving.
+
+### Code Snippets
+
+Save reusable code snippets with syntax highlighting and project organization.
+
+### AI-Assisted Project Notes
+
+DevVault can import information from a GitHub project and use an AI model to generate structured notes and useful development information.
+
+This feature was built to explore practical AI integration inside a developer-focused application.
+
+### Dashboard
+
+The dashboard provides an overview of the user's developer workspace, including project and resource statistics.
+
+## API
+
+The backend exposes a versioned REST API:
+
+```text
+/api/v1
 ```
 
-## Why two separate deployments (Railway + Vercel)
+Swagger API documentation is available during local development at:
 
-The backend (NestJS + Prisma + Postgres) runs on **Railway**, and the frontend
-(static Vite build) runs on **Vercel**. They are two independent services that
-talk to each other over HTTPS — there is no shared server and no build-time
-proxying in production. This means:
+```text
+/api/docs
+```
 
-- The frontend must know the backend's public URL via `VITE_API_BASE_URL`
-  (baked in at build time by Vite — see `Frontend/README.md`).
-- The backend must know the frontend's public URL via `FRONTEND_URL`, since
-  it's used to build password-reset links and OAuth redirect targets.
-- CORS, OAuth callback URLs, and cookie/token behavior all have to account
-  for the two living on different domains — see the CORS and OAuth notes in
-  `Backend/README.md` if you're debugging cross-origin issues.
+## Project Structure
 
-In local development, this split doesn't matter as much — the Vite dev
-server proxies `/api/*` straight to `localhost:4000`, so both apps behave as
-if they share an origin. The two-domain reality only shows up once deployed,
-which is a common source of confusion (hardcoded relative URLs work locally
-and 404 in production, for example) — worth remembering if something works
-on `localhost` but not on the live site.
+```text
+DevVault/
+├── Frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── services/
+│   │   ├── lib/
+│   │   └── ...
+│   └── ...
+│
+├── Backend/
+│   ├── src/
+│   │   ├── auth/
+│   │   ├── notes/
+│   │   ├── projects/
+│   │   ├── snippets/
+│   │   └── ...
+│   └── ...
+│
+└── README.md
+```
 
-## Local setup
+## Running Locally
 
-### 1. Install dependencies (both folders at once)
+### Prerequisites
+
+- Node.js
+- npm
+- PostgreSQL
+
+### Backend
 
 ```bash
-npm run setup
+cd Backend
+npm install
 ```
 
-This installs Frontend and Backend dependencies. The Backend `postinstall`
-script runs `prisma generate` automatically.
+Create a `.env` file with the required database and authentication configuration.
 
-### 2. Create the Backend environment file
+Run Prisma migrations:
 
-Create `Backend/.env` (never commit this — see the environment variable
-table in `Backend/README.md` for the full list, including SendGrid,
-OAuth, and Anthropic keys):
+```bash
+npx prisma migrate dev
+```
+
+Start the backend:
+
+```bash
+npm run start:dev
+```
+
+The backend runs on:
+
+```text
+http://localhost:4000
+```
+
+### Frontend
+
+Open another terminal:
+
+```bash
+cd Frontend
+npm install
+npm run dev
+```
+
+Then open the local Vite development URL shown in the terminal.
+
+## Environment Variables
+
+Environment files are not included in the repository.
+
+### Backend
 
 ```env
-DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/devvault"
-JWT_ACCESS_SECRET="<generate with: node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\">"
-JWT_REFRESH_SECRET="<generate the same way — must be different from the access secret>"
-FRONTEND_URL="http://localhost:5173"
+DATABASE_URL=
+JWT_SECRET=
+JWT_REFRESH_SECRET=
+GROQ_API_KEY=
 ```
 
-### 3. Create the Frontend environment file
-
-Create `Frontend/.env`:
+### Frontend
 
 ```env
-VITE_API_BASE_URL=http://localhost:4000
+VITE_API_BASE_URL=
 ```
 
-### 4. Create the database tables
+Never commit real API keys, database credentials, or authentication secrets to the repository.
 
-```bash
-cd Backend && npx prisma db push
-```
+## Development Focus
 
-### 5. Run the app
+The main purpose of DevVault was to practice building a complete full-stack application rather than only a frontend interface.
 
-Open two terminals:
+Key areas explored during development included:
 
-**Terminal 1 — Backend (port 4000):**
-```bash
-cd Backend && npm run start:dev
-```
+- React application architecture
+- TypeScript
+- REST API design
+- JWT authentication
+- Prisma and PostgreSQL
+- Database relationships
+- React Query server state
+- Form validation
+- API error handling
+- AI API integration
+- GitHub API integration
+- Developer-focused UI/UX
+- Full-stack debugging
 
-**Terminal 2 — Frontend (port 5000/5173 depending on config):**
-```bash
-cd Frontend && npm run dev
-```
+## AI-Assisted Development
 
-Open the printed local URL in your browser. In dev, the frontend proxies all
-`/api` requests to the backend automatically — no `.env` value is strictly
-required for local-only testing, but production always needs it.
+DevVault was developed using an AI-assisted development workflow.
 
-## API docs
+AI tools were used to support:
 
-Swagger UI is available at `http://localhost:4000/api/docs` when the backend
-is running locally, or `<your-railway-url>/api/docs` in production.
+- Exploring implementation approaches
+- Debugging errors
+- Understanding unfamiliar APIs
+- Reviewing code
+- Improving UI implementation
+- Troubleshooting frontend and backend integration
 
-## Deployment notes (Railway + Vercel)
+The project was not intended to represent an AI-generated application. Development involved implementing, testing, debugging, and making engineering decisions throughout the project.
 
-- **Railway**: builds from `Backend/` via `nixpacks.toml` /
-  `railway.toml`. All secrets (DB URL, JWT secrets, SendGrid key, OAuth
-  client IDs/secrets, `FRONTEND_URL`, Anthropic key) must be set in Railway's
-  **Variables** tab — Railway does not read `Backend/.env`.
-- **Vercel**: builds from `Frontend/`, with **Root Directory** set to
-  `Frontend` in the project settings. `VITE_API_BASE_URL` must be set in
-  Vercel's **Environment Variables** for **Production and Preview** both —
-  Vite bakes this in at build time, so changing it always requires a
-  redeploy. A `Frontend/vercel.json` rewrite rule is required so that
-  client-side routes (React Router) don't 404 on direct navigation/refresh.
-- After changing any environment variable on either platform, trigger a
-  redeploy — neither platform hot-reloads env vars into an already-running
-  build.
+## Current Status
+
+DevVault is currently maintained as a development and portfolio project.
+
+The project is not currently presented as a production-hosted application.
+
+The repository remains available as a record of the project's architecture, implementation, and development process.
+
+## What I Learned
+
+Building DevVault provided practical experience with full-stack application development, especially around the boundary between frontend state management, backend APIs, and persistent data.
+
+One of the most valuable parts of the project was working through integration and debugging issues across multiple layers of the application instead of treating the frontend and backend as separate projects.
+
+## Author
+
+**Haani Raza**
+
+BS Computer Science  
+DHA Suffa University
+
+GitHub: **Haani-110**
