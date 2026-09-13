@@ -81,6 +81,38 @@ renders it on the sign-in pages. It replaced a probe that POSTed dummy
 credentials to `/auth/login` on every mount — which worked, but wrote a failed
 login into the audit trail of anyone who opened the page.
 
+### One route = one chunk
+
+`App.tsx` wraps every page in `React.lazy`, and each layout has a `<Suspense
+fallback={<RouteFallback />}>` around its `<Outlet />` — the shell stays on
+screen and only the page area swaps. What that changed, measured with
+`npm run build`:
+
+| | before | after |
+|---|---|---|
+| entry chunk | 2,084 kB / 660 kB gzip | 478 kB / 150 kB gzip |
+| Monaco, markdown editor, Recharts, three.js | in the entry chunk, before the sign-in form could paint | fetched with the route that uses them |
+
+Two deliberate non-optimizations:
+
+- **The editor modals stay in the Notes/Snippets chunk.** Splitting them out
+  would cut the route's first load, but every click on "New note" would then
+  stall on a 366 kB download. A slow first visit is survivable; a slow *button*
+  feels broken. (`dist/assets/notesService-*.js`, ~1 MB, is
+  `@uiw/react-md-editor`'s preview stack — react-markdown + lowlight with every
+  language definition. That's the thing to attack if the notes route ever needs
+  to get lighter, not the split points.)
+- **`ColorBends` (three.js) is lazy inside `AuthLayout`**, with a static gradient
+  underneath, because a decorative background should never delay a login form.
+  It also probes for WebGL first: with hardware acceleration off — a VM, a
+  headless run — `new THREE.WebGLRenderer()` throws from an effect and used to
+  take the whole auth screen down with it.
+
+Code splitting introduces one failure mode that didn't exist before: a deploy
+replaces the hashed chunk files, a visitor still holds the old `index.html`, and
+the import for the page they click 404s. `ui/RouteBoundary.tsx` catches that in
+`main.tsx` and offers a reload instead of a blank page.
+
 ### Client-side routing needs a Vercel rewrite
 
 Because routing is handled entirely by React Router in the browser, a
@@ -171,10 +203,17 @@ No `.env` is needed for local development: `vite.config.ts` proxies `/api/*` to
 proxy is bypassed entirely.
 
 ```bash
-npm test               # vitest + jsdom
+npm test               # vitest + jsdom — 6 tests
 npm run lint           # eslint, zero warnings allowed
-npm run build          # tsc -b, then vite build
+npm run build          # tsc -b, then vite build (prints the per-chunk sizes)
 ```
+
+The suite is small on purpose, and each test earns its place:
+`src/lib/axios.spec.ts` covers the refresh interceptor (including the deadlock
+regression), and `src/App.spec.tsx` renders the real router + layouts +
+providers so a `React.lazy` route that never resolves — or a Suspense boundary
+that gets dropped — fails here instead of in a browser. Rendering the app
+requires no backend: the tests swap the axios adapter for a local one.
 
 ## Deploying to Vercel (optional)
 

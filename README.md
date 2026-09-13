@@ -150,7 +150,7 @@ because a static host has no proxy.
 
 ```bash
 npm run test:backend     # 99 unit + 27 e2e, no database or network needed
-npm run test:frontend    # vitest: the auth-refresh interceptor
+npm run test:frontend    # vitest: the refresh interceptor and the routing shell
 npm run build            # both apps, type-checked
 ```
 

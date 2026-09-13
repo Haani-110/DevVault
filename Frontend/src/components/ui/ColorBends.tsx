@@ -131,6 +131,16 @@ void main() {
  * meant as ambient depth behind content, not a focal effect competing with it.
  * Respects prefers-reduced-motion by freezing on the first frame.
  */
+/** Probes once per mount; three.js throws rather than reporting failure itself. */
+function supportsWebGL(): boolean {
+  try {
+    const canvas = document.createElement('canvas');
+    return Boolean(canvas.getContext('webgl2') || canvas.getContext('webgl'));
+  } catch {
+    return false;
+  }
+}
+
 export default function ColorBends({
   className,
   style,
@@ -162,6 +172,14 @@ export default function ColorBends({
 
   useEffect(() => {
     const container = containerRef.current!;
+
+    // No usable WebGL should mean "no background", not "broken page". Headless
+    // runs, VMs and browsers with hardware acceleration switched off all land
+    // here, and `new THREE.WebGLRenderer()` throws from inside the effect —
+    // which React reports as an error in whatever mounted this, i.e. the whole
+    // auth screen. The static gradient underneath already covers the gap.
+    if (!supportsWebGL()) return;
+
     const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 

@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react';
 import { Outlet } from 'react-router-dom';
 import VaultDial from '@/components/ui/VaultDial';
 import VaultHero from '@/components/ui/VaultHero';
+import RouteFallback from '@/components/ui/RouteFallback';
 
 // Lazy-loaded: this pulls in three.js, a genuinely heavy dependency, so it
 // shouldn't block the initial page paint or the JS the actual login form needs.
@@ -80,7 +81,9 @@ export default function AuthLayout() {
       {/* Right panel — auth form */}
       <div className="flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-sm">
-          <Outlet />
+          <Suspense fallback={<RouteFallback />}>
+            <Outlet />
+          </Suspense>
         </div>
       </div>
     </div>
