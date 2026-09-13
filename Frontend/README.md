@@ -113,6 +113,30 @@ replaces the hashed chunk files, a visitor still holds the old `index.html`, and
 the import for the page they click 404s. `ui/RouteBoundary.tsx` catches that in
 `main.tsx` and offers a reload instead of a blank page.
 
+### Dialogs and the mobile drawer
+
+Anything that behaves like a dialog says so: `ModalShell` owns Escape, the
+backdrop click, `role="dialog"`, `aria-modal`, `aria-labelledby` and the initial
+focus, and the older bespoke modals (notes, snippets, the project create/edit
+form, the project detail edit form) carry the same attributes with
+`hooks/useEscapeKey`. Two rules that are easy to get wrong and are enforced by
+those components rather than by each page:
+
+- **Escape and the backdrop go dead while a request is in flight.** A dismissed
+  dialog that hides a save about to land is worse than a dialog that will not
+  close.
+- **The off-screen drawer is actually gone.** The mobile sidebar used to slide
+  out with `translate-x-full`, which moves it out of sight but not out of the
+  tab order — so keyboard users tabbed through the entire nav before reaching the
+  page. It is now `inert` (and `aria-hidden`) while hidden, and
+  `hooks/useMediaQuery` decides that from the same `lg` breakpoint the CSS uses,
+  because "is this the drawer or the permanent sidebar?" cannot be answered from
+  the `open` flag alone. Escape closes it, and the trigger reports
+  `aria-expanded`.
+
+No focus trap: the drawer is a disclosure, not a modal, and a trap there would
+make it harder to leave, not easier.
+
 ### Client-side routing needs a Vercel rewrite
 
 Because routing is handled entirely by React Router in the browser, a
@@ -203,17 +227,28 @@ No `.env` is needed for local development: `vite.config.ts` proxies `/api/*` to
 proxy is bypassed entirely.
 
 ```bash
-npm test               # vitest + jsdom — 18 tests
+npm test               # vitest + jsdom — 20 tests
 npm run lint           # eslint, zero warnings allowed
 npm run build          # tsc -b, then vite build (prints the per-chunk sizes)
 ```
 
-The suite is small on purpose, and each test earns its place:
-`src/lib/axios.spec.ts` covers the refresh interceptor (including the deadlock
-regression), and `src/App.spec.tsx` renders the real router + layouts +
-providers so a `React.lazy` route that never resolves — or a Suspense boundary
-that gets dropped — fails here instead of in a browser. Rendering the app
-requires no backend: the tests swap the axios adapter for a local one.
+The suite is small on purpose, and each file earns its place:
+
+- `src/lib/axios.spec.ts` — the refresh interceptor, including the deadlock
+  regression. With the guard removed, two of the three hang until they time out
+  instead of failing, which is what shows they aim at the right thing.
+- `src/App.spec.tsx` — the real router, layouts and providers: a `React.lazy`
+  route that never resolves, a Suspense boundary someone deletes, a dialog that
+  loses its accessible name, and the mobile drawer losing its `inert` guard — all
+  of which fail here rather than in a browser.
+- `src/lib/api-error.spec.ts` — the envelope translation every page renders
+  through: the stable `code`, validation `details` keyed by field, the offline
+  case, and a proxy's 502 (answered and unreachable are still different advice).
+- `src/services/notesService.spec.ts` — the query string, because "archived" is
+  the API's job; the tab that got this wrong once is worth pinning down.
+
+Nothing needs a running backend: the specs mock the transport or swap the axios
+adapter for a local one.
 
 ## Deploying to Vercel (optional)
 

@@ -4,6 +4,8 @@ import { FiGrid, FiFileText, FiFolder, FiCode, FiSend, FiSettings, FiX } from 'r
 import VaultDial from '@/components/ui/VaultDial';
 import Badge from '@/components/ui/Badge';
 import type { IconType } from 'react-icons';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 
 interface NavItem {
   to: string;
@@ -46,6 +48,15 @@ interface Props {
 }
 
 export default function Sidebar({ open = false, onClose }: Props) {
+  // The drawer only exists below the `lg` breakpoint, so keyboard behaviour has to
+  // follow the media query rather than the `open` flag alone: Escape must not
+  // "close" the permanent desktop sidebar, and a closed drawer must not stay in
+  // the tab order — translating an element off-screen leaves it reachable, which
+  // meant tabbing through the entire nav before reaching the page.
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const hiddenDrawer = !isDesktop && !open;
+  useEscapeKey(onClose, !isDesktop && open);
+
   return (
     <>
       {/* Mobile backdrop — tapping it closes the drawer. Hidden entirely on desktop. */}
@@ -58,6 +69,8 @@ export default function Sidebar({ open = false, onClose }: Props) {
       )}
 
       <aside
+        inert={hiddenDrawer}
+        aria-hidden={hiddenDrawer}
         className={clsx(
           'w-64 shrink-0 h-screen bg-ink-soft flex flex-col border-r border-border',
           // Mobile: fixed off-canvas drawer that slides in/out.

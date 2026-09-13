@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FiPlus, FiFolder, FiX, FiGithub } from 'react-icons/fi';
 import { projectsService } from '@/services/projectsService';
@@ -89,6 +90,10 @@ export default function ProjectsPage() {
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
+  // Dead while a save is in flight: Escape mid-mutation would close the dialog on
+  // a request that is about to change the list.
+  useEscapeKey(closeModal, showModal && !isPending);
+
   return (
     <div className="space-y-6">
       <div className="sticky top-14 z-[5] bg-ink -mx-4 px-4 sm:-mx-6 sm:px-6 pt-2 pb-4 flex items-center justify-between gap-4 flex-wrap border-b border-border/50">
@@ -143,14 +148,20 @@ export default function ProjectsPage() {
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={closeModal}>
-          <div className="card w-full max-w-xl flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="card w-full max-w-xl flex flex-col max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label={editingProject ? 'Edit project' : 'New project'}
+          >
 
             {/* Header */}
             <div className="flex items-center justify-between px-6 pt-6 pb-4 shrink-0">
               <h2 className="font-display font-semibold text-lg">
                 {editingProject ? 'Edit project' : 'New project'}
               </h2>
-              <button onClick={closeModal} className="text-text-muted hover:text-text transition-colors">
+              <button onClick={closeModal} aria-label="Close" className="text-text-muted hover:text-text transition-colors">
                 <FiX size={18} />
               </button>
             </div>

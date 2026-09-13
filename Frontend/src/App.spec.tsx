@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -89,5 +89,42 @@ describe('routing shell', () => {
     // and a code editor the first time the chunk is imported, which dominates.
     expect(await screen.findByRole('heading', { name: 'Notes' }, { timeout: 20_000 })).toBeTruthy();
     await waitFor(() => expect(screen.getByText('No notes yet')).toBeTruthy(), { timeout: 5_000 });
+  }, 30_000);
+
+  it('opens the project dialog labelled, and closes it on Escape', async () => {
+    // The dialog wiring a screenshot cannot show: the panel has to be an
+    // accessible dialog, and Escape has to reach it. `useEscapeKey` is guarded on
+    // `!isPending`, so a save in flight keeps the dialog where it is.
+    useAuthStore.getState().setTokens('access-token', 'refresh-token');
+    renderApp('/projects');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'New project' }), undefined);
+
+    const dialog = await screen.findByRole('dialog', { name: 'New project' });
+    expect(dialog).toBeTruthy();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull(), { timeout: 5_000 });
+  }, 30_000);
+
+  it('keeps the off-screen mobile drawer out of the tab order, and Escape closes it', async () => {
+    // jsdom reports no viewport width, so the media query resolves to "not
+    // desktop" and this exercises the drawer branch — the one that used to leave
+    // the whole nav tabbable while translated off-screen.
+    useAuthStore.getState().setTokens('access-token', 'refresh-token');
+    renderApp('/dashboard');
+
+    const aside = await waitFor(() => {
+      const el = document.querySelector('aside');
+      if (!el) throw new Error('sidebar not rendered yet');
+      return el;
+    });
+    expect(aside.hasAttribute('inert')).toBe(true);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    await waitFor(() => expect(aside.hasAttribute('inert')).toBe(false));
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(aside.hasAttribute('inert')).toBe(true));
   }, 30_000);
 });

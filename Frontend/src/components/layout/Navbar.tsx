@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { useNavigate } from 'react-router-dom';
 import { FiBell, FiSearch, FiLogOut, FiSettings, FiCheck, FiMenu } from 'react-icons/fi';
 import ThemeToggle from './ThemeToggle';
@@ -29,7 +30,14 @@ const SAMPLE_NOTIFICATIONS: Notification[] = [
   },
 ];
 
-export default function Navbar({ onMenuClick }: { onMenuClick?: () => void }) {
+export default function Navbar({
+  onMenuClick,
+  drawerOpen = false,
+}: {
+  onMenuClick?: () => void;
+  /** The sidebar drawer's state lives in the layout; this button is what opens it. */
+  drawerOpen?: boolean;
+}) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -58,13 +66,21 @@ export default function Navbar({ onMenuClick }: { onMenuClick?: () => void }) {
 
   const initials = user?.username?.slice(0, 2).toUpperCase() ?? 'DV';
 
+  // Both popovers are dismissed the same way, and Escape should not fire while
+  // neither is open (it would otherwise compete with dialogs on the page).
+  useEscapeKey(() => {
+    setNotifOpen(false);
+    setMenuOpen(false);
+  }, notifOpen || menuOpen);
+
   return (
     <header className="h-14 border-b border-border bg-ink/90 backdrop-blur-sm sticky top-0 z-10 flex items-center justify-between px-3 sm:px-5 gap-2 sm:gap-4">
       <div className="flex items-center gap-2 flex-1 min-w-0">
         {/* Mobile menu button — opens the Sidebar drawer, hidden on desktop where the sidebar is always visible */}
         <button
           onClick={onMenuClick}
-          aria-label="Open menu"
+          aria-label={drawerOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={drawerOpen}
           className="lg:hidden w-9 h-9 shrink-0 flex items-center justify-center rounded text-text-muted hover:text-text hover:bg-surface-hover transition-colors"
         >
           <FiMenu size={18} />
@@ -89,6 +105,8 @@ export default function Navbar({ onMenuClick }: { onMenuClick?: () => void }) {
         <div className="relative">
           <button
             aria-label="Notifications"
+            aria-expanded={notifOpen}
+            aria-haspopup="dialog"
             onClick={() => { setNotifOpen((o) => !o); setMenuOpen(false); }}
             className="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-colors relative"
           >

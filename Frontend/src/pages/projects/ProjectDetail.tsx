@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FiArrowLeft, FiEdit2, FiX, FiCheckCircle, FiCircle, FiClock, FiAlertCircle, FiFileText, FiCode, FiTrello } from 'react-icons/fi';
@@ -32,6 +33,10 @@ export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  // Escape, the backdrop and the buttons all go dead while the PATCH is in
+  // flight, so a dismissed dialog never hides a save that is still happening.
+  useEscapeKey(() => setEditOpen(false), editOpen && !savingEdit);
   const [editForm, setEditForm] = useState({ name: '', description: '', color: '' });
   const [activeTab, setActiveTab] = useState<'board' | 'notes' | 'snippets'>('board');
 
@@ -87,6 +92,7 @@ export default function ProjectDetail() {
 
   async function handleSaveEdit() {
     if (!id || !editForm.name.trim()) return;
+    setSavingEdit(true);
     const saved = await run(
       () =>
         projectsService.update(id, {
@@ -102,6 +108,7 @@ export default function ProjectDetail() {
     );
     // Only close once it really saved: a rejected PATCH (a malformed colour, for
     // instance) used to dismiss the form and lose the edit with a generic toast.
+    setSavingEdit(false);
     if (saved) setEditOpen(false);
   }
 
@@ -394,16 +401,23 @@ export default function ProjectDetail() {
       {editOpen && project && (
         <div
           className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm"
-          onClick={() => setEditOpen(false)}
+          onClick={() => !savingEdit && setEditOpen(false)}
         >
           <div className="flex min-h-full items-center justify-center p-4 pt-16 pb-8">
           <div
             className="card w-full max-w-md p-6 space-y-5"
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Edit project"
           >
             <div className="flex items-center justify-between">
               <h2 className="font-display font-semibold text-lg">Edit project</h2>
-              <button onClick={() => setEditOpen(false)} className="text-text-muted hover:text-text">
+              <button
+                onClick={() => setEditOpen(false)}
+                aria-label="Close"
+                className="text-text-muted hover:text-text"
+              >
                 <FiX size={18} />
               </button>
             </div>
@@ -448,9 +462,15 @@ export default function ProjectDetail() {
             </div>
 
             <div className="flex justify-end gap-3">
-              <button className="btn-ghost" onClick={() => setEditOpen(false)}>Cancel</button>
-              <button className="btn-primary" onClick={handleSaveEdit} disabled={!editForm.name.trim()}>
-                Save changes
+              <button className="btn-ghost" onClick={() => setEditOpen(false)} disabled={savingEdit}>
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleSaveEdit}
+                disabled={!editForm.name.trim() || savingEdit}
+              >
+                {savingEdit ? 'Saving…' : 'Save changes'}
               </button>
             </div>
           </div>

@@ -11,7 +11,7 @@ export default function DashboardLayout() {
     <div className="flex min-h-screen bg-ink">
       <Sidebar open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
       <div className="flex-1 min-w-0">
-        <Navbar onMenuClick={() => setMobileNavOpen(true)} />
+        <Navbar onMenuClick={() => setMobileNavOpen((v) => !v)} drawerOpen={mobileNavOpen} />
         <main className="p-4 sm:p-6 max-w-7xl mx-auto animate-fade-up">
           {/* Suspense here rather than around <App />: the sidebar and navbar
               are already on screen, so only the page area swaps for a skeleton
