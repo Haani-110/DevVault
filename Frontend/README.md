@@ -203,7 +203,7 @@ No `.env` is needed for local development: `vite.config.ts` proxies `/api/*` to
 proxy is bypassed entirely.
 
 ```bash
-npm test               # vitest + jsdom — 6 tests
+npm test               # vitest + jsdom — 18 tests
 npm run lint           # eslint, zero warnings allowed
 npm run build          # tsc -b, then vite build (prints the per-chunk sizes)
 ```
