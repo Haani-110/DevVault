@@ -2,8 +2,10 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import BackendStatusPill from '@/components/ui/BackendStatusPill';
+import { apiErrorMessage } from '@/lib/api-error';
 
 function GoogleIcon() {
   return (
@@ -37,18 +39,6 @@ export default function Register() {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [apiStatus, setApiStatus] = useState<'checking' | 'ok' | 'unreachable'>('checking');
-
-  // Check backend connectivity on mount
-  useEffect(() => {
-    fetch('/api/v1/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'ping@ping.com', password: 'ping' }),
-    })
-      .then(() => setApiStatus('ok'))
-      .catch(() => setApiStatus('unreachable'));
-  }, []);
 
   const {
     register,
@@ -63,10 +53,7 @@ export default function Register() {
       await signup(data);
       navigate('/dashboard');
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        (err instanceof Error ? err.message : 'Could not create account');
-      setFormError(String(msg));
+      setFormError(apiErrorMessage(err, 'Could not create account'));
     } finally {
       setSubmitting(false);
     }
@@ -79,20 +66,7 @@ export default function Register() {
         Free for individuals — upgrade any time as your team grows.
       </p>
 
-      {/* Backend status */}
-      <div className={`text-xs px-3 py-2 rounded-lg mb-5 flex items-center gap-2 ${
-        apiStatus === 'checking' ? 'bg-surface text-text-muted' :
-        apiStatus === 'ok' ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
-        'bg-red-500/10 text-red-400 border border-red-500/20'
-      }`}>
-        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-          apiStatus === 'checking' ? 'bg-text-muted animate-pulse' :
-          apiStatus === 'ok' ? 'bg-green-400' : 'bg-red-400'
-        }`} />
-        {apiStatus === 'checking' && 'Checking server…'}
-        {apiStatus === 'ok' && 'Server reachable — you can register'}
-        {apiStatus === 'unreachable' && 'Cannot reach server. Backend may be down — try reloading.'}
-      </div>
+      <BackendStatusPill okLabel="Server reachable — you can register" />
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         <div>
@@ -122,7 +96,7 @@ export default function Register() {
 
         <button
           type="submit"
-          disabled={submitting || apiStatus === 'unreachable'}
+          disabled={submitting}
           className="btn-primary w-full mt-2"
         >
           {submitting ? 'Creating account…' : 'Create account'}

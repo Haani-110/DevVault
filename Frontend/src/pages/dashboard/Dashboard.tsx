@@ -9,13 +9,15 @@ import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import StorageGauge from '@/components/dashboard/StorageGauge';
 import WeeklyChart from '@/components/dashboard/WeeklyChart';
 import Skeleton from '@/components/ui/Skeleton';
+import ErrorState from '@/components/ui/ErrorState';
 import { dashboardService } from '@/services/dashboardService';
+import { apiErrorMessage } from '@/lib/api-error';
 import { useAuth } from '@/hooks/useAuth';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['dashboard'],
     queryFn: () => dashboardService.getStats(),
   });
@@ -145,8 +147,16 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Stat cards */}
-      {isLoading ? (
+      {/* Stat cards. A failed fetch must not read as "0 notes, 0 snippets": the
+          numbers here are the point of the page, so an empty vault and an
+          unreachable API have to look different. */}
+      {isError ? (
+        <ErrorState
+          error={apiErrorMessage(error, 'Could not load your dashboard.')}
+          onRetry={refetch}
+          retryLabel="Reload"
+        />
+      ) : isLoading ? (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)}
         </div>

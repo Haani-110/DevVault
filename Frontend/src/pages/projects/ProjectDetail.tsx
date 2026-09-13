@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FiArrowLeft, FiEdit2, FiX, FiCheckCircle, FiCircle, FiClock, FiAlertCircle, FiFileText, FiCode, FiTrello } from 'react-icons/fi';
@@ -13,13 +13,15 @@ import SnippetCard from '@/components/snippets/SnippetCard';
 import SnippetModal from '@/components/snippets/SnippetModal';
 import SnippetPreviewModal from '@/components/snippets/SnippetPreviewModal';
 import EmptyState from '@/components/ui/EmptyState';
+import ErrorState from '@/components/ui/ErrorState';
+import { apiErrorMessage } from '@/lib/api-error';
 import Skeleton from '@/components/ui/Skeleton';
 import toast from 'react-hot-toast';
 import type { TaskStatus, TaskPriority, Project, Note, Snippet } from '@/types';
 
 const COLORS = ['#E8A33D', '#5EEAD4', '#F87171', '#818CF8', '#34D399', '#60A5FA', '#F472B6', '#A78BFA'];
 
-const statusMeta: { status: TaskStatus; label: string; icon: React.ReactNode; color: string }[] = [
+const statusMeta: { status: TaskStatus; label: string; icon: ReactNode; color: string }[] = [
   { status: 'BACKLOG',     label: 'Backlog',     icon: <FiCircle size={13} />,      color: 'text-text-muted' },
   { status: 'IN_PROGRESS', label: 'In progress', icon: <FiClock size={13} />,       color: 'text-blue-400' },
   { status: 'IN_REVIEW',   label: 'In review',   icon: <FiAlertCircle size={13} />, color: 'text-brass-400' },
@@ -42,19 +44,37 @@ export default function ProjectDetail() {
   const { data: projects } = useQuery({ queryKey: ['projects'], queryFn: projectsService.list });
   const project = projects?.find((p) => p.id === id);
 
-  const { data: tasks, isLoading } = useQuery({
+  const {
+    data: tasks,
+    isLoading,
+    isError: tasksFailed,
+    error: tasksError,
+    refetch: refetchTasks,
+  } = useQuery({
     queryKey: ['tasks', id],
     queryFn: () => projectsService.listTasks(id!),
     enabled: !!id,
   });
 
-  const { data: projectNotes, isLoading: notesLoading } = useQuery({
+  const {
+    data: projectNotes,
+    isLoading: notesLoading,
+    isError: notesFailed,
+    error: notesError,
+    refetch: refetchNotes,
+  } = useQuery({
     queryKey: ['notes', { projectId: id }],
     queryFn: () => notesService.list(id),
     enabled: !!id && activeTab === 'notes',
   });
 
-  const { data: projectSnippets, isLoading: snippetsLoading } = useQuery({
+  const {
+    data: projectSnippets,
+    isLoading: snippetsLoading,
+    isError: snippetsFailed,
+    error: snippetsError,
+    refetch: refetchSnippets,
+  } = useQuery({
     queryKey: ['snippets', { projectId: id }],
     queryFn: () => snippetsService.list(id),
     enabled: !!id && activeTab === 'snippets',
@@ -67,48 +87,46 @@ export default function ProjectDetail() {
 
   async function handleSaveEdit() {
     if (!id || !editForm.name.trim()) return;
+    const saved = await run(
+      () =>
+        projectsService.update(id, {
+          name: editForm.name.trim(),
+          description: editForm.description.trim() || undefined,
+          color: editForm.color,
+        }),
+      () => {
+        queryClient.invalidateQueries({ queryKey: ['projects'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      },
+      'Project updated',
+    );
+    // Only close once it really saved: a rejected PATCH (a malformed colour, for
+    // instance) used to dismiss the form and lose the edit with a generic toast.
+    if (saved) setEditOpen(false);
+  }
+
+  /**
+   * Shared path for every write on this page: refresh the cache on success and
+   * name the failure on rejection. Several handlers used to let the rejection
+   * escape without a word, which left a card snapping back with no explanation.
+   */
+  async function run(action: () => Promise<unknown>, invalidate: () => void, success?: string) {
     try {
-      await projectsService.update(id, {
-        name: editForm.name.trim(),
-        description: editForm.description.trim() || undefined,
-        color: editForm.color,
-      });
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      setEditOpen(false);
-      toast.success('Project updated');
-    } catch {
-      toast.error('Failed to update project');
+      await action();
+      invalidate();
+      if (success) toast.success(success);
+      return true;
+    } catch (err: unknown) {
+      toast.error(apiErrorMessage(err, 'That did not save — please try again.'));
+      return false;
     }
   }
 
-  async function handleMove(taskId: string, newStatus: TaskStatus) {
-    await projectsService.moveTask(taskId, newStatus);
+  function invalidateBoard() {
     queryClient.invalidateQueries({ queryKey: ['tasks', id] });
     queryClient.invalidateQueries({ queryKey: ['projects'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
   }
-
-  async function handleCreateTask(status: TaskStatus, title: string, priority: TaskPriority, dueDate?: string) {
-    if (!id) return;
-    try {
-      await projectsService.createTask(id, { title, priority, status, dueDate });
-      queryClient.invalidateQueries({ queryKey: ['tasks', id] });
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-    } catch {
-      toast.error('Failed to create task');
-    }
-  }
-
-  async function handleDeleteTask(taskId: string) {
-    try {
-      await projectsService.deleteTask(taskId);
-      queryClient.invalidateQueries({ queryKey: ['tasks', id] });
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      toast.success('Task deleted');
-    } catch {
-      toast.error('Failed to delete task');
-    }
-  }
-
   function invalidateNotes() {
     queryClient.invalidateQueries({ queryKey: ['notes', { projectId: id }] });
     queryClient.invalidateQueries({ queryKey: ['notes'] });
@@ -118,44 +136,36 @@ export default function ProjectDetail() {
     queryClient.invalidateQueries({ queryKey: ['snippets'] });
   }
 
-  async function handleTogglePin(noteId: string) {
-    await notesService.togglePin(noteId);
-    invalidateNotes();
-  }
-  async function handleToggleNoteFavorite(noteId: string) {
-    await notesService.toggleFavorite(noteId);
-    invalidateNotes();
-  }
-  async function handleToggleArchive(noteId: string, currentlyArchived: boolean) {
-    await notesService.toggleArchive(noteId);
-    invalidateNotes();
-    toast.success(currentlyArchived ? 'Note restored' : 'Note archived');
-  }
-  async function handleDeleteNote(noteId: string) {
-    await notesService.delete(noteId);
-    invalidateNotes();
-    toast.success('Note deleted');
-  }
-  async function handleSaveNote(noteId: string, data: { title: string; content: string; tags: string[] }) {
-    await notesService.update(noteId, data);
-    invalidateNotes();
-    toast.success('Note updated');
-  }
+  const handleMove = (taskId: string, newStatus: TaskStatus) =>
+    run(() => projectsService.moveTask(taskId, newStatus), invalidateBoard);
 
-  async function handleToggleSnippetFavorite(snippetId: string) {
-    await snippetsService.toggleFavorite(snippetId);
-    invalidateSnippets();
-  }
-  async function handleDeleteSnippet(snippetId: string) {
-    await snippetsService.delete(snippetId);
-    invalidateSnippets();
-    toast.success('Snippet deleted');
-  }
-  async function handleUpdateSnippet(snippetId: string, input: Parameters<typeof snippetsService.update>[1]) {
-    await snippetsService.update(snippetId, input);
-    invalidateSnippets();
-    toast.success('Snippet updated');
-  }
+  const handleCreateTask = (status: TaskStatus, title: string, priority: TaskPriority, dueDate?: string) =>
+    id ? run(() => projectsService.createTask(id, { title, priority, status, dueDate }), invalidateBoard) : false;
+
+  const handleDeleteTask = (taskId: string) =>
+    run(() => projectsService.deleteTask(taskId), invalidateBoard, 'Task deleted');
+
+  const handleTogglePin = (noteId: string) => run(() => notesService.togglePin(noteId), invalidateNotes);
+
+  const handleToggleNoteFavorite = (noteId: string) =>
+    run(() => notesService.toggleFavorite(noteId), invalidateNotes);
+
+  const handleToggleArchive = (noteId: string, currentlyArchived: boolean) =>
+    run(() => notesService.toggleArchive(noteId), invalidateNotes, currentlyArchived ? 'Note restored' : 'Note archived');
+
+  const handleDeleteNote = (noteId: string) => run(() => notesService.delete(noteId), invalidateNotes, 'Note deleted');
+
+  const handleSaveNote = (noteId: string, data: { title: string; content: string; tags: string[] }) =>
+    run(() => notesService.update(noteId, data), invalidateNotes, 'Note updated');
+
+  const handleToggleSnippetFavorite = (snippetId: string) =>
+    run(() => snippetsService.toggleFavorite(snippetId), invalidateSnippets);
+
+  const handleDeleteSnippet = (snippetId: string) =>
+    run(() => snippetsService.delete(snippetId), invalidateSnippets, 'Snippet deleted');
+
+  const handleUpdateSnippet = (snippetId: string, input: Parameters<typeof snippetsService.update>[1]) =>
+    run(() => snippetsService.update(snippetId, input), invalidateSnippets, 'Snippet updated');
 
   const totalTasks = tasks?.length ?? 0;
   const doneTasks = tasks?.filter((t) => t.status === 'DONE').length ?? 0;
@@ -276,7 +286,13 @@ export default function ProjectDetail() {
       )}
 
       {/* Kanban board */}
-      {isLoading ? (
+      {tasksFailed ? (
+        <ErrorState
+          error={apiErrorMessage(tasksError, 'Could not load the board for this project.')}
+          onRetry={refetchTasks}
+          retryLabel="Reload"
+        />
+      ) : isLoading ? (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-80" />
@@ -307,7 +323,13 @@ export default function ProjectDetail() {
       )}
 
       {activeTab === 'notes' && (
-        notesLoading ? (
+        notesFailed ? (
+          <ErrorState
+            error={apiErrorMessage(notesError, 'Could not load the notes in this project.')}
+            onRetry={refetchNotes}
+            retryLabel="Reload"
+          />
+        ) : notesLoading ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40" />)}
           </div>
@@ -336,7 +358,13 @@ export default function ProjectDetail() {
       )}
 
       {activeTab === 'snippets' && (
-        snippetsLoading ? (
+        snippetsFailed ? (
+          <ErrorState
+            error={apiErrorMessage(snippetsError, 'Could not load the snippets in this project.')}
+            onRetry={refetchSnippets}
+            retryLabel="Reload"
+          />
+        ) : snippetsLoading ? (
           <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-52" />)}
           </div>

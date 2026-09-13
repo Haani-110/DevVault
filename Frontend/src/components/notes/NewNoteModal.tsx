@@ -3,10 +3,12 @@ import MDEditor from '@uiw/react-md-editor';
 import '@uiw/react-md-editor/markdown-editor.css';
 import { FiX } from 'react-icons/fi';
 import { useTheme } from '@/hooks/useTheme';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 
 interface Props {
   onClose: () => void;
-  onCreate: (data: { title: string; content: string; tags: string[] }) => void;
+  /** Resolves `false` when the save failed, so the draft can stay open. */
+  onCreate: (data: { title: string; content: string; tags: string[] }) => unknown | Promise<unknown>;
 }
 
 export default function NewNoteModal({ onClose, onCreate }: Props) {
@@ -15,9 +17,9 @@ export default function NewNoteModal({ onClose, onCreate }: Props) {
   const [content, setContent] = useState('# New note\n\nStart writing…');
   const [tagsInput, setTagsInput] = useState('');
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!title.trim()) return;
-    onCreate({
+    const saved = await onCreate({
       title: title.trim(),
       content,
       tags: tagsInput
@@ -25,8 +27,10 @@ export default function NewNoteModal({ onClose, onCreate }: Props) {
         .map((t) => t.trim())
         .filter(Boolean),
     });
-    onClose();
+    if (saved !== false) onClose();
   }
+
+  useEscapeKey(onClose);
 
   return (
     <div
@@ -36,6 +40,9 @@ export default function NewNoteModal({ onClose, onCreate }: Props) {
       <div
         className="card w-full max-w-2xl flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="New note"
         data-color-mode={theme}
       >
         {/* Header */}

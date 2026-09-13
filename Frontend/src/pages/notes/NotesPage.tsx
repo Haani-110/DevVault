@@ -7,8 +7,10 @@ import NewNoteModal from '@/components/notes/NewNoteModal';
 import EditNoteModal from '@/components/notes/EditNoteModal';
 import NotePreviewModal from '@/components/notes/NotePreviewModal';
 import EmptyState from '@/components/ui/EmptyState';
+import ErrorState from '@/components/ui/ErrorState';
 import Skeleton from '@/components/ui/Skeleton';
 import { notesService } from '@/services/notesService';
+import { apiErrorMessage } from '@/lib/api-error';
 import { projectsService } from '@/services/projectsService';
 import type { Note } from '@/types';
 
@@ -23,10 +25,25 @@ export default function NotesPage() {
   const [previewingNote, setPreviewingNote] = useState<Note | null>(null);
   const [projectFilter, setProjectFilter] = useState('');
 
-  const { data: notes, isLoading } = useQuery({
-    queryKey: ['notes'],
-    queryFn: () => notesService.list(),
+  // Active and archived notes are two queries, because the API returns one half
+  // or the other. The Archived tab used to filter a list that could never
+  // contain an archived note — which is why it looked empty rather than wrong.
+  const showArchived = activeTab === 'archived';
+
+  const activeQuery = useQuery({
+    queryKey: ['notes', { archived: false }],
+    queryFn: () => notesService.list(undefined, false),
   });
+  const archivedQuery = useQuery({
+    queryKey: ['notes', { archived: true }],
+    queryFn: () => notesService.list(undefined, true),
+  });
+
+  const notes = showArchived ? archivedQuery.data : activeQuery.data;
+  const isLoading = showArchived ? archivedQuery.isLoading : activeQuery.isLoading;
+  const queryError = showArchived ? archivedQuery.error : activeQuery.error;
+  const queryFailed = showArchived ? archivedQuery.isError : activeQuery.isError;
+  const retryQuery = () => void (showArchived ? archivedQuery.refetch() : activeQuery.refetch());
 
   const { data: projects } = useQuery({
     queryKey: ['projects'],
@@ -37,11 +54,7 @@ export default function NotesPage() {
     if (!notes) return [];
     let result = notes;
 
-    if (activeTab === 'archived') {
-      result = result.filter((n) => n.isArchived);
-    } else {
-      // Non-archived tabs only show active notes
-      result = result.filter((n) => !n.isArchived);
+    if (!showArchived) {
       if (activeTab === 'pinned') result = result.filter((n) => n.isPinned);
       if (activeTab === 'favorites') result = result.filter((n) => n.isFavorite);
     }
@@ -60,45 +73,38 @@ export default function NotesPage() {
       );
     }
     return result;
-  }, [notes, search, activeTab, projectFilter]);
+  }, [notes, search, activeTab, projectFilter, showArchived]);
 
-  const archivedCount = useMemo(() => notes?.filter((n) => n.isArchived).length ?? 0, [notes]);
-  const activeNotes = useMemo(() => notes?.filter((n) => !n.isArchived) ?? [], [notes]);
+  const archivedCount = useMemo(() => archivedQuery.data?.length ?? 0, [archivedQuery.data]);
+  const activeNotes = useMemo(() => activeQuery.data ?? [], [activeQuery.data]);
 
-  async function handleTogglePin(id: string) {
-    await notesService.togglePin(id);
-    queryClient.invalidateQueries({ queryKey: ['notes'] });
+  /**
+   * Every write goes through here: refresh the cache on success, and say so when
+   * it failed. Without the catch, a rejected request was a silent no-op — the
+   * card would flip back on the next render and nothing explained why.
+   */
+  async function mutate(action: () => Promise<unknown>, success?: string) {
+    try {
+      await action();
+      queryClient.invalidateQueries({ queryKey: ['notes'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      if (success) toast.success(success);
+      return true;
+    } catch (err: unknown) {
+      toast.error(apiErrorMessage(err, 'That did not save — please try again.'));
+      return false;
+    }
   }
 
-  async function handleToggleFavorite(id: string) {
-    await notesService.toggleFavorite(id);
-    queryClient.invalidateQueries({ queryKey: ['notes'] });
-  }
-
-  async function handleToggleArchive(id: string, currentlyArchived: boolean) {
-    await notesService.toggleArchive(id);
-    queryClient.invalidateQueries({ queryKey: ['notes'] });
-    toast.success(currentlyArchived ? 'Note restored' : 'Note archived');
-  }
-
-  async function handleDelete(id: string) {
-    await notesService.delete(id);
-    queryClient.invalidateQueries({ queryKey: ['notes'] });
-    toast.success('Note deleted');
-  }
-
-  async function handleCreate(input: { title: string; content: string; tags: string[] }) {
-    await notesService.create(input);
-    queryClient.invalidateQueries({ queryKey: ['notes'] });
-    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-    toast.success('Note saved');
-  }
-
-  async function handleEdit(id: string, data: { title: string; content: string; tags: string[] }) {
-    await notesService.update(id, data);
-    queryClient.invalidateQueries({ queryKey: ['notes'] });
-    toast.success('Note updated');
-  }
+  const handleTogglePin = (id: string) => mutate(() => notesService.togglePin(id));
+  const handleToggleFavorite = (id: string) => mutate(() => notesService.toggleFavorite(id));
+  const handleToggleArchive = (id: string, currentlyArchived: boolean) =>
+    mutate(() => notesService.toggleArchive(id), currentlyArchived ? 'Note restored' : 'Note archived');
+  const handleDelete = (id: string) => mutate(() => notesService.delete(id), 'Note deleted');
+  const handleCreate = (input: { title: string; content: string; tags: string[] }) =>
+    mutate(() => notesService.create(input), 'Note saved');
+  const handleEdit = (id: string, data: { title: string; content: string; tags: string[] }) =>
+    mutate(() => notesService.update(id, data), 'Note updated');
 
   const tabs: { id: FilterTab; label: string; count?: number }[] = [
     { id: 'all', label: 'All', count: activeNotes.length },
@@ -164,7 +170,13 @@ export default function NotesPage() {
         ))}
       </div>
 
-      {isLoading ? (
+      {queryFailed ? (
+        <ErrorState
+          error={apiErrorMessage(queryError, 'Could not load your notes.')}
+          onRetry={retryQuery}
+          retryLabel="Reload"
+        />
+      ) : isLoading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-40" />

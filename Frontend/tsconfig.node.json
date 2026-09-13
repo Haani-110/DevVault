@@ -1,6 +1,9 @@
 {
   "compilerOptions": {
     "composite": true,
+    // tsc -b would otherwise drop vite.config.js/.d.ts next to the source,
+    // and Vite prefers vite.config.js over vite.config.ts.
+    "outDir": "node_modules/.tmp/tsconfig.node",
     "skipLibCheck": true,
     "module": "ESNext",
     "moduleResolution": "bundler",

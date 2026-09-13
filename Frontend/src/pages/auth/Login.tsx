@@ -2,12 +2,16 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import BackendStatusPill from '@/components/ui/BackendStatusPill';
+import { apiErrorMessage } from '@/lib/api-error';
 
 const schema = z.object({
   email: z.string().email('Enter a valid email'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  // No length rule here: this is a lookup, not a policy check. Anything short
+  // enough to fail the API's rule simply fails sign-in like a wrong password.
+  password: z.string().min(1, 'Enter your password'),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -37,17 +41,6 @@ export default function Login() {
   const [searchParams] = useSearchParams();
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(searchParams.get('oauthError'));
-  const [apiStatus, setApiStatus] = useState<'checking' | 'ok' | 'unreachable'>('checking');
-
-  useEffect(() => {
-    fetch('/api/v1/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'ping@ping.com', password: 'ping' }),
-    })
-      .then(() => setApiStatus('ok'))
-      .catch(() => setApiStatus('unreachable'));
-  }, []);
 
   const {
     register,
@@ -62,10 +55,9 @@ export default function Login() {
       await login(data);
       navigate('/dashboard');
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        (err instanceof Error ? err.message : 'Could not sign in');
-      setFormError(String(msg));
+      // The backend's own message when it sent one ("Invalid email or
+      // password"), and a readable "can't reach the server" when it didn't.
+      setFormError(apiErrorMessage(err, 'Could not sign in'));
     } finally {
       setSubmitting(false);
     }
@@ -78,20 +70,7 @@ export default function Login() {
         Welcome back. Enter your details to access your vault.
       </p>
 
-      {/* Backend status */}
-      <div className={`text-xs px-3 py-2 rounded-lg mb-5 flex items-center gap-2 ${
-        apiStatus === 'checking' ? 'bg-surface text-text-muted' :
-        apiStatus === 'ok' ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
-        'bg-red-500/10 text-red-400 border border-red-500/20'
-      }`}>
-        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-          apiStatus === 'checking' ? 'bg-text-muted animate-pulse' :
-          apiStatus === 'ok' ? 'bg-green-400' : 'bg-red-400'
-        }`} />
-        {apiStatus === 'checking' && 'Checking server…'}
-        {apiStatus === 'ok' && 'Server reachable'}
-        {apiStatus === 'unreachable' && 'Cannot reach server. Backend may be down — try reloading.'}
-      </div>
+      <BackendStatusPill />
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         <div>
@@ -120,7 +99,7 @@ export default function Login() {
 
         <button
           type="submit"
-          disabled={submitting || apiStatus === 'unreachable'}
+          disabled={submitting}
           className="btn-primary w-full mt-2"
         >
           {submitting ? 'Signing in…' : 'Sign in'}

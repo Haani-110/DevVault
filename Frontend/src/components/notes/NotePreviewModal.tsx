@@ -7,6 +7,7 @@ import clsx from 'clsx';
 import { useTheme } from '@/hooks/useTheme';
 import Badge from '@/components/ui/Badge';
 import type { Note } from '@/types';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 
 interface Props {
   note: Note;
@@ -29,12 +30,19 @@ export default function NotePreviewModal({
 }: Props) {
   const { theme } = useTheme();
 
+  useEscapeKey(onClose);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="card w-full max-w-2xl flex flex-col max-h-[90vh]">
+      <div
+        className="card w-full max-w-2xl flex flex-col max-h-[90vh]"
+        role="dialog"
+        aria-modal="true"
+        aria-label={note.title}
+      >
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-border">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">

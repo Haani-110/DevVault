@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
 import { userService } from '@/services/userService';
 import { authService } from '@/services/authService';
+import { apiErrorMessage } from '@/lib/api-error';
 import toast from 'react-hot-toast';
 
 function resizeImageToBase64(file: File, maxSize = 256): Promise<string> {
@@ -69,8 +70,8 @@ export default function Settings() {
     try {
       const { url } = await authService.getGithubLinkUrl();
       window.location.href = url;
-    } catch {
-      toast.error('Could not start the GitHub connection — please try again.');
+    } catch (err: unknown) {
+      toast.error(apiErrorMessage(err, 'Could not start the GitHub connection — please try again.'));
       setConnectingGithub(false);
     }
   };
@@ -140,10 +141,7 @@ export default function Settings() {
       setAvatarBase64(null);
       toast.success('Profile updated');
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        (err instanceof Error ? err.message : 'Failed to save');
-      toast.error(String(msg));
+      toast.error(apiErrorMessage(err, 'Failed to save'));
     } finally {
       setSaving(false);
     }
@@ -159,10 +157,7 @@ export default function Settings() {
       toast.success('Password changed successfully');
       setCurrentPw(''); setNewPw(''); setConfirmPw('');
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        (err instanceof Error ? err.message : 'Failed to change password');
-      toast.error(String(msg));
+      toast.error(apiErrorMessage(err, 'Failed to change password'));
     } finally {
       setChangingPw(false);
     }
@@ -175,10 +170,7 @@ export default function Settings() {
       toast('Account deleted', { icon: '🗑️' });
       signOut();
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        (err instanceof Error ? err.message : 'Failed to delete account');
-      toast.error(String(msg));
+      toast.error(apiErrorMessage(err, 'Failed to delete account'));
       setDeleting(false);
       setConfirmDelete(false);
     }

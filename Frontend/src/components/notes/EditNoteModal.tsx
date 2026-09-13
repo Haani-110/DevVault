@@ -4,11 +4,13 @@ import '@uiw/react-md-editor/markdown-editor.css';
 import { FiX } from 'react-icons/fi';
 import { useTheme } from '@/hooks/useTheme';
 import type { Note } from '@/types';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 
 interface Props {
   note: Note;
   onClose: () => void;
-  onSave: (id: string, data: { title: string; content: string; tags: string[] }) => void;
+  /** Resolves `false` when the save failed, so the edits are not thrown away. */
+  onSave: (id: string, data: { title: string; content: string; tags: string[] }) => unknown | Promise<unknown>;
 }
 
 export default function EditNoteModal({ note, onClose, onSave }: Props) {
@@ -17,9 +19,9 @@ export default function EditNoteModal({ note, onClose, onSave }: Props) {
   const [content, setContent] = useState(note.content);
   const [tagsInput, setTagsInput] = useState(note.tags.join(', '));
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!title.trim()) return;
-    onSave(note.id, {
+    const saved = await onSave(note.id, {
       title: title.trim(),
       content,
       tags: tagsInput
@@ -27,8 +29,10 @@ export default function EditNoteModal({ note, onClose, onSave }: Props) {
         .map((t) => t.trim())
         .filter(Boolean),
     });
-    onClose();
+    if (saved !== false) onClose();
   }
+
+  useEscapeKey(onClose);
 
   return (
     <div
@@ -38,6 +42,9 @@ export default function EditNoteModal({ note, onClose, onSave }: Props) {
       <div
         className="card w-full max-w-2xl flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Edit note"
         data-color-mode={theme}
       >
         {/* Header */}

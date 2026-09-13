@@ -3,11 +3,12 @@ import clsx from 'clsx';
 import { FiGrid, FiFileText, FiFolder, FiCode, FiSend, FiSettings, FiX } from 'react-icons/fi';
 import VaultDial from '@/components/ui/VaultDial';
 import Badge from '@/components/ui/Badge';
+import type { IconType } from 'react-icons';
 
 interface NavItem {
   to: string;
   label: string;
-  icon: any;
+  icon: IconType;
   soon?: boolean;
 }
 

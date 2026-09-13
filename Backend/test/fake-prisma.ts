@@ -18,8 +18,9 @@
  *  - Concurrency. Every operation is synchronous, so two racing writes are not
  *    a thing this can model.
  *
- * Anything that depends on real storage behaviour belongs in `prisma`-against-
- * Postgres checks (see the "Migrations" section of Backend/README.md), not here.
+ * Anything that depends on real storage behaviour belongs in a check against a
+ * real Postgres — `prisma migrate deploy` with `prisma/schema.prisma` and the
+ * SQL in `prisma/migrations/` — not here.
  */
 
 type Row = Record<string, any>;

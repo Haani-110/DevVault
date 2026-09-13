@@ -5,6 +5,9 @@
   "scripts": {
     "setup": "npm install --prefix Frontend && npm install --prefix Backend",
     "dev:frontend": "npm run dev --prefix Frontend",
-    "dev:backend": "npm run start:dev --prefix Backend"
+    "dev:backend": "npm run start:dev --prefix Backend",
+    "test:backend": "npm run test:all --prefix Backend",
+    "test:frontend": "npm test --prefix Frontend",
+    "build": "npm run build --prefix Frontend && npm run build --prefix Backend"
   }
 }

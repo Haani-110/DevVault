@@ -5,10 +5,11 @@ notes, code snippets, and project/task tracking a developer normally scatters
 across five different tools. It started as a Replit prototype and has since
 been split into a real, independently deployable frontend and backend.
 
-Live example deployment:
-- Frontend (Vercel): `https://<your-vercel-app>.vercel.app`
-- Backend (Railway): `https://<your-railway-app>.up.railway.app`
-- API docs (Swagger): `<backend-url>/api/docs`
+Everything here runs on your machine: a Postgres database, the NestJS API on
+`:4000`, the Vite dev server on `:5000`. No account, no paid service and no
+deployed instance is required to use it — the Vercel/Railway configs are
+included so hosting is a config change, not a code change. Nothing in this
+repository claims to be live anywhere but `localhost`.
 
 ## Concept
 
@@ -22,26 +23,38 @@ The core idea is a single "vault" a developer logs into every day that holds:
 - **Auth** — email/password with secure password reset via email, plus
   "Sign in with Google" and "Sign in with GitHub" as one-click alternatives.
 
-Two features are designed but not yet built:
+Two more are specced but deliberately not built:
 - **API Collections** (a lightweight Postman-style request organizer)
 - **Password Vault** (encrypted credential storage)
 
-Both currently render as "coming soon" screens in the frontend so the
-information architecture is visible even before the backend exists for them.
+`Frontend/src/pages/collections/CollectionsPage.tsx` lays out the intended
+feature set as a static page so the information architecture is visible, and the
+sidebar marks it "soon" with an inert link. Password Vault has no page yet, and
+neither has an endpoint.
 
-### Where this is heading: AI-assisted import
+### AI-assisted GitHub import (built)
 
-The next major feature in progress is **AI-assisted project import**: a user
-connects/imports a GitHub repository, and DevVault reads through the source
-files and uses the Claude API to automatically generate:
-- **Notes** summarizing what each module/file does, in plain English
-- **Snippets** — the genuinely reusable pieces of code worth keeping around
+A user picks one of their GitHub repositories — using the OAuth connection they
+already have, no GitHub App and no separate auth flow — and DevVault reads the
+source files and asks a model (Groq, `llama-3.3-70b-versatile` by default) to
+turn them into:
 
-Both get attached to a new `Project` created for that import, so a repo you
-drop in becomes a pre-populated DevVault workspace instead of a blank one.
-This relies on GitHub OAuth already storing a usable access token per user
-(see `OAuthAccount` in the Prisma schema) — no separate GitHub App or extra
-auth flow is needed to read a user's own repos.
+- **Notes** summarizing what each module or file does, in plain English
+- **Snippets** for the genuinely reusable pieces of code
+- **Tasks** seeded onto the new project's board
+
+Everything lands on a `Project` created for that import, with provenance on each
+row (`sourcePath`, `filesAnalyzed`, `generatedByAI`), so an imported note can
+always be traced back to the file it came from.
+
+It is a **background job, not a long HTTP request**: `POST /api/v1/import/github`
+validates the repository and answers `202 { jobId }` immediately, then the UI
+polls `GET /import/github/jobs/:jobId` for stage, counters and warnings. That is
+what lets the import survive a reload (the modal picks up `jobs/latest` on
+mount), and it is why the progress panel can honestly say "3 of 5 analysis
+batches failed" instead of showing a green tick over a partial import. Skipping
+binaries, capping files at 8 KB, pacing to the free tier's rate limit, and a
+10-minute deadline are all in `Backend/src/import/`.
 
 ## Project structure
 
@@ -52,12 +65,13 @@ auth flow is needed to read a user's own repos.
 └── package.json  (root convenience scripts)
 ```
 
-## Why two separate deployments (Railway + Vercel)
+## Why two deployments (Railway + Vercel)
 
-The backend (NestJS + Prisma + Postgres) runs on **Railway**, and the frontend
-(static Vite build) runs on **Vercel**. They are two independent services that
-talk to each other over HTTPS — there is no shared server and no build-time
-proxying in production. This means:
+The usual shape for this app is: backend (NestJS + Prisma + Postgres) on
+**Railway**, frontend (static Vite build) on **Vercel**. They are two
+independent services that talk to each other over HTTPS — no shared server, and
+no proxying in production. That split is a hosting choice, not a requirement:
+running both locally works because Vite proxies `/api`. It does mean:
 
 - The frontend must know the backend's public URL via `VITE_API_BASE_URL`
   (baked in at build time by Vite — see `Frontend/README.md`).
@@ -87,16 +101,17 @@ script runs `prisma generate` automatically.
 
 ### 2. Create the Backend environment file
 
-Create `Backend/.env` (never commit this — see the environment variable
-table in `Backend/README.md` for the full list, including SendGrid,
-OAuth, and Anthropic keys):
-
-```env
-DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/devvault"
-JWT_ACCESS_SECRET="<generate with: node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\">"
-JWT_REFRESH_SECRET="<generate the same way — must be different from the access secret>"
-FRONTEND_URL="http://localhost:5173"
+Never commit `.env` (it is git-ignored). `Backend/README.md` has the full table
+of every variable, including SendGrid, OAuth and Groq keys:
+```bash
+cp Backend/.env.example Backend/.env
 ```
+
+`.env.example` is annotated and complete; the three values worth changing for a
+real login flow are `DATABASE_URL`, the two JWT secrets (generate each with
+`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) and
+`OAUTH_ENCRYPTION_KEY`, which is what keeps a stored GitHub token encrypted at
+rest. `FRONTEND_URL` defaults to `http://localhost:5000`, the Vite port below.
 
 ### 3. Create the Frontend environment file
 
@@ -109,7 +124,7 @@ VITE_API_BASE_URL=http://localhost:4000
 ### 4. Create the database tables
 
 ```bash
-cd Backend && npx prisma db push
+cd Backend && npx prisma migrate deploy
 ```
 
 ### 5. Run the app
@@ -118,29 +133,47 @@ Open two terminals:
 
 **Terminal 1 — Backend (port 4000):**
 ```bash
-cd Backend && npm run start:dev
+npm run dev:backend
 ```
 
-**Terminal 2 — Frontend (port 5000/5173 depending on config):**
+**Terminal 2 — Frontend (port 5000):**
 ```bash
-cd Frontend && npm run dev
+npm run dev:frontend
 ```
 
-Open the printed local URL in your browser. In dev, the frontend proxies all
-`/api` requests to the backend automatically — no `.env` value is strictly
-required for local-only testing, but production always needs it.
+Open the printed local URL (`http://localhost:5000`) in your browser. In dev the
+frontend proxies all `/api` requests to the backend automatically, so no
+`VITE_API_BASE_URL` is needed locally — but a production build always needs it,
+because a static host has no proxy.
+
+### 6. Tests
+
+```bash
+npm run test:backend     # 99 unit + 27 e2e, no database or network needed
+npm run test:frontend    # vitest: the auth-refresh interceptor
+npm run build            # both apps, type-checked
+```
+
+or from inside each folder (`npm run test:all`, `npm test`, `npm run lint`).
+
+The backend suites run against an in-memory Prisma double
+(`Backend/test/fake-prisma.ts`), so `docker`-less CI and a laptop with no
+Postgres running both get an honest pass/fail.
 
 ## API docs
 
-Swagger UI is available at `http://localhost:4000/api/docs` when the backend
-is running locally, or `<your-railway-url>/api/docs` in production.
+Swagger UI is served by the app itself at `http://localhost:4000/api/docs`
+whenever the backend is running — it is generated from the controller
+decorators, so it cannot drift from the routes.
 
-## Deployment notes (Railway + Vercel)
+## Deployment notes (if you choose to host it)
 
 - **Railway**: builds from `Backend/` via `nixpacks.toml` /
   `railway.toml`. All secrets (DB URL, JWT secrets, SendGrid key, OAuth
-  client IDs/secrets, `FRONTEND_URL`, Anthropic key) must be set in Railway's
-  **Variables** tab — Railway does not read `Backend/.env`.
+  client IDs/secrets, `OAUTH_ENCRYPTION_KEY`, Groq key, `FRONTEND_URL`) must be
+  set in Railway's **Variables** tab — Railway does not read `Backend/.env`.
+  `postinstall` runs `prisma generate`; add `npx prisma migrate deploy` to the
+  release command so schema changes actually apply.
 - **Vercel**: builds from `Frontend/`, with **Root Directory** set to
   `Frontend` in the project settings. `VITE_API_BASE_URL` must be set in
   Vercel's **Environment Variables** for **Production and Preview** both —

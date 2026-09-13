@@ -4,6 +4,7 @@ import Editor from '@monaco-editor/react';
 import { useTheme } from '@/hooks/useTheme';
 import type { Snippet } from '@/types';
 import type { CreateSnippetInput, UpdateSnippetInput } from '@/services/snippetsService';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 
 const LANGUAGES = [
   'plaintext', 'typescript', 'javascript', 'python', 'rust', 'go', 'java',
@@ -15,8 +16,9 @@ const LANGUAGES = [
 interface Props {
   snippet: Snippet | null;
   onClose: () => void;
-  onCreate: (input: CreateSnippetInput) => void;
-  onUpdate: (id: string, input: UpdateSnippetInput) => void;
+  /** Resolve to `false` when the save failed, so the draft is not thrown away. */
+  onCreate: (input: CreateSnippetInput) => unknown | Promise<unknown>;
+  onUpdate: (id: string, input: UpdateSnippetInput) => unknown | Promise<unknown>;
 }
 
 export default function SnippetModal({ snippet, onClose, onCreate, onUpdate }: Props) {
@@ -27,16 +29,16 @@ export default function SnippetModal({ snippet, onClose, onCreate, onUpdate }: P
   const [language, setLanguage] = useState(snippet?.language ?? 'typescript');
   const [tagsInput, setTagsInput] = useState(snippet?.tags.join(', ') ?? '');
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!title.trim()) return;
     const tags = tagsInput.split(',').map((t) => t.trim()).filter(Boolean);
-    if (snippet) {
-      onUpdate(snippet.id, { title: title.trim(), description: description.trim() || undefined, code, language, tags });
-    } else {
-      onCreate({ title: title.trim(), description: description.trim() || undefined, code, language, tags });
-    }
-    onClose();
+    const saved = snippet
+      ? await onUpdate(snippet.id, { title: title.trim(), description: description.trim() || undefined, code, language, tags })
+      : await onCreate({ title: title.trim(), description: description.trim() || undefined, code, language, tags });
+    if (saved !== false) onClose();
   }
+
+  useEscapeKey(onClose);
 
   return (
     <div
@@ -46,6 +48,9 @@ export default function SnippetModal({ snippet, onClose, onCreate, onUpdate }: P
       <div
         className="card w-full max-w-3xl flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={snippet ? 'Edit snippet' : 'New snippet'}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-4 shrink-0">

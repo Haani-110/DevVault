@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FiPlus, FiFolder, FiX, FiGithub } from 'react-icons/fi';
 import { projectsService } from '@/services/projectsService';
+import { apiErrorMessage } from '@/lib/api-error';
 import ProjectCard from '@/components/projects/ProjectCard';
 import ImportGithubModal from '@/components/projects/ImportGithubModal';
 import EmptyState from '@/components/ui/EmptyState';
+import ErrorState from '@/components/ui/ErrorState';
 import Skeleton from '@/components/ui/Skeleton';
 import toast from 'react-hot-toast';
 import type { Project } from '@/types';
@@ -26,7 +28,7 @@ export default function ProjectsPage() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [form, setForm] = useState<ProjectFormState>(defaultForm());
 
-  const { data: projects, isLoading } = useQuery({
+  const { data: projects, isLoading, isError: listFailed, error: listError, refetch: refetchList } = useQuery({
     queryKey: ['projects'],
     queryFn: projectsService.list,
   });
@@ -39,11 +41,7 @@ export default function ProjectsPage() {
       toast.success('Project created');
       closeModal();
     },
-    onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-        || (err instanceof Error ? err.message : 'Failed to create project');
-      toast.error(String(msg));
-    },
+    onError: (err: unknown) => toast.error(apiErrorMessage(err, 'Could not create that project.')),
   });
 
   const updateMutation = useMutation({
@@ -54,11 +52,7 @@ export default function ProjectsPage() {
       toast.success('Project updated');
       closeModal();
     },
-    onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-        || (err instanceof Error ? err.message : 'Failed to update project');
-      toast.error(String(msg));
-    },
+    onError: (err: unknown) => toast.error(apiErrorMessage(err, 'Could not update that project.')),
   });
 
   const deleteMutation = useMutation({
@@ -68,7 +62,7 @@ export default function ProjectsPage() {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success('Project deleted');
     },
-    onError: () => toast.error('Failed to delete project'),
+    onError: (err: unknown) => toast.error(apiErrorMessage(err, 'Could not delete that project.')),
   });
 
   function openEdit(project: Project) {
@@ -83,7 +77,7 @@ export default function ProjectsPage() {
     setForm(defaultForm());
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) return;
     if (editingProject) {
@@ -116,7 +110,13 @@ export default function ProjectsPage() {
 
       {showImportModal && <ImportGithubModal onClose={() => setShowImportModal(false)} />}
 
-      {isLoading ? (
+      {listFailed ? (
+        <ErrorState
+          error={apiErrorMessage(listError, 'Could not load your projects.')}
+          onRetry={refetchList}
+          retryLabel="Reload"
+        />
+      ) : isLoading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-40" />

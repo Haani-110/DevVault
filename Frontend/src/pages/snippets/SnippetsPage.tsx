@@ -3,11 +3,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FiPlus, FiCode } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import EmptyState from '@/components/ui/EmptyState';
+import ErrorState from '@/components/ui/ErrorState';
 import Skeleton from '@/components/ui/Skeleton';
 import SnippetCard from '@/components/snippets/SnippetCard';
 import SnippetModal from '@/components/snippets/SnippetModal';
 import SnippetPreviewModal from '@/components/snippets/SnippetPreviewModal';
 import { snippetsService } from '@/services/snippetsService';
+import { apiErrorMessage } from '@/lib/api-error';
 import { projectsService } from '@/services/projectsService';
 import type { Snippet } from '@/types';
 
@@ -20,7 +22,7 @@ export default function SnippetsPage() {
   const [editingSnippet, setEditingSnippet] = useState<Snippet | null>(null);
   const [previewingSnippet, setPreviewingSnippet] = useState<Snippet | null>(null);
 
-  const { data: snippets, isLoading } = useQuery({
+  const { data: snippets, isLoading, isError: listFailed, error: listError, refetch: refetchList } = useQuery({
     queryKey: ['snippets'],
     queryFn: () => snippetsService.list(),
   });
@@ -52,29 +54,29 @@ export default function SnippetsPage() {
     return result;
   }, [snippets, search, langFilter, projectFilter]);
 
-  async function handleCreate(input: Parameters<typeof snippetsService.create>[0]) {
-    await snippetsService.create(input);
-    queryClient.invalidateQueries({ queryKey: ['snippets'] });
-    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-    toast.success('Snippet saved');
+  /** Refresh on success, name the failure — a rejected write used to be silent. */
+  async function mutate(action: () => Promise<unknown>, success?: string) {
+    try {
+      await action();
+      queryClient.invalidateQueries({ queryKey: ['snippets'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      if (success) toast.success(success);
+      return true;
+    } catch (err: unknown) {
+      toast.error(apiErrorMessage(err, 'That did not save — please try again.'));
+      return false;
+    }
   }
 
-  async function handleUpdate(id: string, input: Parameters<typeof snippetsService.update>[1]) {
-    await snippetsService.update(id, input);
-    queryClient.invalidateQueries({ queryKey: ['snippets'] });
-    toast.success('Snippet updated');
-  }
+  const handleCreate = (input: Parameters<typeof snippetsService.create>[0]) =>
+    mutate(() => snippetsService.create(input), 'Snippet saved');
 
-  async function handleToggleFavorite(id: string) {
-    await snippetsService.toggleFavorite(id);
-    queryClient.invalidateQueries({ queryKey: ['snippets'] });
-  }
+  const handleUpdate = (id: string, input: Parameters<typeof snippetsService.update>[1]) =>
+    mutate(() => snippetsService.update(id, input), 'Snippet updated');
 
-  async function handleDelete(id: string) {
-    await snippetsService.delete(id);
-    queryClient.invalidateQueries({ queryKey: ['snippets'] });
-    toast.success('Snippet deleted');
-  }
+  const handleToggleFavorite = (id: string) => mutate(() => snippetsService.toggleFavorite(id));
+
+  const handleDelete = (id: string) => mutate(() => snippetsService.delete(id), 'Snippet deleted');
 
   return (
     <div className="space-y-6">
@@ -122,7 +124,13 @@ export default function SnippetsPage() {
         </div>
       </div>
 
-      {isLoading ? (
+      {listFailed ? (
+        <ErrorState
+          error={apiErrorMessage(listError, 'Could not load your snippets.')}
+          onRetry={refetchList}
+          retryLabel="Reload"
+        />
+      ) : isLoading ? (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-52" />

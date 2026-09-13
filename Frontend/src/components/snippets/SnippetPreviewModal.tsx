@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import { useTheme } from '@/hooks/useTheme';
 import Badge from '@/components/ui/Badge';
 import type { Snippet } from '@/types';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 
 interface Props {
   snippet: Snippet;
@@ -30,12 +31,19 @@ export default function SnippetPreviewModal({ snippet, onClose, onEdit, onToggle
   // ones don't push the modal off-screen — the editor scrolls internally past this.
   const editorHeight = Math.min(Math.max(lineCount * 19, 120), 420);
 
+  useEscapeKey(onClose);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="card w-full max-w-3xl flex flex-col max-h-[90vh]">
+      <div
+        className="card w-full max-w-3xl flex flex-col max-h-[90vh]"
+        role="dialog"
+        aria-modal="true"
+        aria-label={snippet.title}
+      >
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-border">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">

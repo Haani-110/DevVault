@@ -1,241 +1,367 @@
-import { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { FiX, FiGithub, FiSearch, FiLock, FiCheck } from 'react-icons/fi';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { importService, type GithubRepo } from '@/services/importService';
+import { FiCheck, FiGithub, FiLock, FiSearch } from 'react-icons/fi';
+import ModalShell from '@/components/ui/ModalShell';
+import ErrorState from '@/components/ui/ErrorState';
+import { useGithubImport } from '@/hooks/useGithubImport';
+import { apiErrorMessage, toApiError } from '@/lib/api-error';
 import { authService } from '@/services/authService';
+import {
+  importService,
+  isTerminal,
+  type GithubRepo,
+  type ImportStage,
+} from '@/services/importService';
 
 interface Props {
   onClose: () => void;
 }
+
+/** The stages the progress panel ticks off, in the order the backend runs them. */
+const STAGES: { stage: ImportStage; label: string }[] = [
+  { stage: 'READING', label: 'Reading the file list' },
+  { stage: 'ANALYZING', label: 'Analyzing source with the model' },
+  { stage: 'SAVING', label: 'Saving notes, snippets and tasks' },
+];
+
+const STAGE_ORDER: ImportStage[] = [
+  'QUEUED',
+  'CONNECTED',
+  'READING',
+  'ANALYZING',
+  'SAVING',
+  'COMPLETED',
+];
 
 export default function ImportGithubModal({ onClose }: Props) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<GithubRepo | null>(null);
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [handledResult, setHandledResult] = useState(false);
+  const [handled, setHandled] = useState(false);
+  const [connecting, setConnecting] = useState(false);
 
-  const { data: repos, isLoading, isError, error } = useQuery({
+  const {
+    data: repos,
+    isLoading,
+    isError,
+    error: reposError,
+    refetch,
+  } = useQuery({
     queryKey: ['github-repos'],
     queryFn: importService.listGithubRepos,
     retry: false,
   });
 
-  const startMutation = useMutation({
-    mutationFn: () => importService.startImport(selected!.owner, selected!.name, selected!.defaultBranch),
-    onSuccess: ({ jobId }) => {
-      setJobId(jobId);
-      setHandledResult(false);
-    },
-    onError: (err: unknown) => {
-      const message =
-        (err as any)?.response?.data?.message || 'Could not start the import — please try again.';
-      toast.error(Array.isArray(message) ? message[0] : message);
-    },
-  });
+  // The job lives in a hook rather than in this component so that reopening the
+  // dialog (or reloading the page) picks up an import that is already running.
+  const { job, starting, error, start, reset } = useGithubImport();
 
-  // Polls the actual backend job — a real import can take a few minutes
-  // (AI rate-limit pacing forces this), so it's a background job rather than
-  // one long-held request. This shows genuine progress, not a simulation.
-  const { data: job } = useQuery({
-    queryKey: ['import-job', jobId],
-    queryFn: () => importService.getImportStatus(jobId!),
-    enabled: !!jobId,
-    refetchInterval: (query) => {
-      const status = query.state.data?.status;
-      return status === 'done' || status === 'error' ? false : 2000;
-    },
-  });
+  const running = !!job && !isTerminal(job);
+  const failed = job?.status === 'FAILED' ? job : null;
+  const done = job?.status === 'COMPLETED' ? job : null;
 
-  // React to the job reaching a terminal state (done/error) exactly once,
-  // via an effect — not during render, since this triggers navigation/toasts.
   useEffect(() => {
-    if (job?.status === 'done' && job.result && !handledResult) {
-      setHandledResult(true);
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      const result = job.result;
-      const repoName = job.repoFullName ?? selected?.fullName;
-      const timer = setTimeout(() => {
-        toast.success(`Imported ${result.notesCreated} notes and ${result.snippetsCreated} snippets from ${repoName}`);
-        onClose();
-        navigate(`/projects/${result.project.id}`);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-    if (job?.status === 'error' && !handledResult) {
-      setHandledResult(true);
-      toast.error(job.error || 'Import failed — please try again.');
-      setJobId(null);
-    }
-  }, [job, handledResult, queryClient, navigate, onClose, selected]);
+    if (!done || handled) return;
+    setHandled(true);
 
-  const isActivelyRunning = !!jobId && (!job || (job.status !== 'done' && job.status !== 'error'));
-  const justFinished = job?.status === 'done';
+    for (const key of ['projects', 'notes', 'snippets', 'tasks', 'dashboard']) {
+      queryClient.invalidateQueries({ queryKey: [key] });
+    }
+
+    // A warning means something was skipped, and a silent jump to the project
+    // page would hide that. Otherwise a short pause, then go look at the result.
+    if (done.warning) return;
+
+    const timer = setTimeout(() => {
+      onClose();
+      navigate(`/projects/${done.result!.project.id}`);
+    }, 900);
+    return () => clearTimeout(timer);
+  }, [done, handled, queryClient, navigate, onClose]);
 
   const filteredRepos = useMemo(() => {
     if (!repos) return [];
-    if (!search.trim()) return repos;
-    const q = search.toLowerCase();
+    const q = search.trim().toLowerCase();
+    if (!q) return repos;
     return repos.filter(
-      (r) => r.fullName.toLowerCase().includes(q) || r.description?.toLowerCase().includes(q),
+      (r) => r.fullName.toLowerCase().includes(q) || r.description?.toLowerCase().includes(q)
     );
   }, [repos, search]);
 
-  const needsGithubConnection =
-    isError && (error as any)?.response?.data?.message?.includes('Connect your GitHub account');
+  // The API tells us this with GITHUB_NOT_CONNECTED; matching on the prose used
+  // to mean a reworded message silently turned the connect panel into an error.
+  const reposFailure = isError ? toApiError(reposError, 'Could not load your repositories.') : null;
+  const needsGithubConnection = reposFailure?.code === 'GITHUB_NOT_CONNECTED';
 
-  const [connecting, setConnecting] = useState(false);
-  const handleConnectGithub = async () => {
+  async function handleConnectGithub() {
     setConnecting(true);
     try {
       const { url } = await authService.getGithubLinkUrl();
       window.location.href = url;
-    } catch {
-      toast.error('Could not start the GitHub connection — please try again.');
+    } catch (err: unknown) {
+      toast.error(
+        apiErrorMessage(err, 'Could not start the GitHub connection — please try again.')
+      );
       setConnecting(false);
     }
-  };
+  }
 
-  const showProgress = isActivelyRunning || justFinished;
-  const progress = justFinished ? 100 : job?.progress ?? 0;
-  const stageLabel = justFinished ? 'Done!' : job?.stageLabel ?? 'Starting…';
+  function handleImport(repo: GithubRepo | null) {
+    if (!repo) return;
+    setHandled(false);
+    void start(repo.owner, repo.name, repo.defaultBranch);
+  }
+
+  const progress = done ? 100 : (job?.progress ?? 0);
+  const stageIndex = job ? STAGE_ORDER.indexOf(job.stage) : -1;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-      onClick={(e) => e.target === e.currentTarget && !isActivelyRunning && onClose()}
+    <ModalShell
+      title="Import from GitHub"
+      icon={<FiGithub size={17} />}
+      onClose={onClose}
+      dismissable={!running}
     >
-      <div className="card w-full max-w-lg flex flex-col max-h-[85vh]">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <div className="flex items-center gap-2">
-            <FiGithub size={17} />
-            <h2 className="font-display font-semibold text-lg">Import from GitHub</h2>
+      {running || (done && !done.warning) ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-5 py-14 px-8 text-center">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center border-2 border-brass-400/30">
+            {done ? (
+              <FiCheck size={26} className="text-ok" />
+            ) : (
+              <span className="text-sm font-mono font-semibold text-brass-400">
+                {Math.round(progress)}%
+              </span>
+            )}
           </div>
-          {!isActivelyRunning && (
-            <button
-              onClick={onClose}
-              className="w-7 h-7 flex items-center justify-center rounded text-text-muted hover:text-text hover:bg-surface-hover transition-colors"
-              aria-label="Close"
+
+          <div className="w-full max-w-xs">
+            <div
+              className="h-1.5 w-full rounded-full bg-surface-raised overflow-hidden"
+              role="progressbar"
+              aria-valuenow={Math.round(progress)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Import progress"
             >
-              <FiX size={16} />
-            </button>
-          )}
+              <div
+                className="h-full rounded-full bg-brass-400 transition-all duration-500 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+
+          <ul className="space-y-1.5 text-left w-full max-w-xs">
+            {STAGES.map(({ stage, label }) => {
+              const index = STAGE_ORDER.indexOf(stage);
+              const complete = !!done || (stageIndex > index && running);
+              const active = !done && stageIndex === index;
+              return (
+                <li key={stage} className="flex items-center gap-2 text-xs">
+                  <span
+                    className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                      complete
+                        ? 'bg-ok/15 border-ok/40 text-ok'
+                        : active
+                          ? 'border-brass-400 text-brass-400'
+                          : 'border-border text-text-faint'
+                    }`}
+                  >
+                    {complete ? (
+                      <FiCheck size={10} />
+                    ) : active ? (
+                      <span className="w-1.5 h-1.5 rounded-full bg-brass-400 animate-pulse" />
+                    ) : null}
+                  </span>
+                  <span className={complete || active ? 'text-text' : 'text-text-faint'}>
+                    {label}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="text-xs text-text-faint font-mono space-y-0.5">
+            {job?.totalFiles ? (
+              <p>
+                {job.processedFiles} / {job.totalFiles} files
+              </p>
+            ) : null}
+            {job?.totalBatches && job.totalBatches > 1 ? (
+              <p>
+                batch {job.completedBatches} of {job.totalBatches}
+              </p>
+            ) : null}
+            {job?.currentFile ? <p className="truncate max-w-[16rem]">{job.currentFile}</p> : null}
+          </div>
+
+          <p className="text-xs text-text-faint max-w-xs">
+            {done
+              ? `Taking you to ${done.repoFullName}…`
+              : `${job?.stageLabel ?? 'Queued'} — larger repositories take a few minutes, because the free AI tier has to be paced.`}
+          </p>
         </div>
-
-        {showProgress ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 py-16 px-8 text-center">
-            <div className="w-16 h-16 rounded-full flex items-center justify-center border-2 border-brass-400/30">
-              {justFinished ? (
-                <FiCheck size={26} className="text-ok" />
-              ) : (
-                <span className="text-sm font-mono font-semibold text-brass-400">
-                  {Math.round(progress)}%
-                </span>
-              )}
-            </div>
-
-            <div className="w-full max-w-xs">
-              <div className="h-1.5 w-full rounded-full bg-surface-raised overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-brass-400 transition-all duration-500 ease-out"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              {job?.totalBatches && job.totalBatches > 1 && !justFinished && (
-                <p className="text-[11px] text-text-faint mt-1.5 font-mono">
-                  Batch {job.completedBatches ?? 0} of {job.totalBatches}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <p className="text-sm text-text font-medium">{stageLabel}</p>
-              <p className="text-xs text-text-faint mt-1 max-w-xs">
-                {justFinished
-                  ? `Taking you to ${job?.repoFullName ?? selected?.fullName}…`
-                  : `Analyzing ${job?.repoFullName ?? selected?.fullName} — larger repos can take a few minutes due to the free-tier AI rate limit.`}
-              </p>
-            </div>
-          </div>
-        ) : needsGithubConnection ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-3 py-16 px-6 text-center">
-            <FiGithub size={28} className="text-text-faint" />
-            <p className="text-sm text-text font-medium">Connect GitHub to import a repository</p>
-            <p className="text-xs text-text-faint max-w-xs">
-              DevVault reads your repositories using the same GitHub connection
-              used for sign-in.
+      ) : done ? (
+        <div className="flex-1 px-6 py-8 text-center">
+          <p className="text-sm text-text font-medium">Imported {done.repoFullName}</p>
+          <p className="text-xs text-text-muted mt-1.5">
+            {done.result
+              ? `${done.result.notesCreated} notes · ${done.result.snippetsCreated} snippets · ${done.result.tasksCreated} tasks from ${done.result.filesAnalyzed} files`
+              : ''}
+          </p>
+          {done.warning && (
+            <p className="text-xs text-amber-400 mt-3 bg-amber-500/10 border border-amber-500/20 rounded px-3 py-2 text-left">
+              {done.warning}
             </p>
-            <button onClick={handleConnectGithub} disabled={connecting} className="btn-primary mt-2">
-              <FiGithub size={15} /> {connecting ? 'Redirecting…' : 'Connect GitHub'}
+          )}
+          <div className="mt-5 flex items-center justify-center gap-2">
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => {
+                onClose();
+                navigate(`/projects/${done.result!.project.id}`);
+              }}
+            >
+              View project
+            </button>
+            <button type="button" className="btn-ghost" onClick={onClose}>
+              Stay here
             </button>
           </div>
-        ) : (
-          <>
-            <div className="px-5 pt-4 pb-3">
-              <div className="relative">
-                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-text-faint" size={14} />
-                <input
-                  className="input pl-8"
-                  placeholder="Search your repositories…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  autoFocus
-                />
-              </div>
+        </div>
+      ) : needsGithubConnection ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 py-16 px-6 text-center">
+          <FiGithub size={28} className="text-text-faint" />
+          <p className="text-sm text-text font-medium">Connect GitHub to import a repository</p>
+          <p className="text-xs text-text-faint max-w-xs">
+            DevVault reads your repositories using the same GitHub connection used for sign-in.
+          </p>
+          <button
+            type="button"
+            onClick={handleConnectGithub}
+            disabled={connecting}
+            className="btn-primary mt-2"
+          >
+            <FiGithub size={15} /> {connecting ? 'Redirecting…' : 'Connect GitHub'}
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="px-5 pt-4 pb-3 shrink-0">
+            <div className="relative">
+              <FiSearch
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-faint"
+                size={14}
+              />
+              <input
+                className="input pl-8"
+                placeholder="Search your repositories…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                aria-label="Search repositories"
+                autoFocus
+              />
             </div>
+          </div>
 
-            <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1">
-              {isLoading &&
-                Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="h-14 rounded bg-surface-raised/60 animate-pulse mx-2" />
-                ))}
-
-              {!isLoading && filteredRepos.length === 0 && (
-                <p className="text-sm text-text-faint text-center py-8">
-                  No repositories match "{search}".
-                </p>
-              )}
-
-              {filteredRepos.map((r) => (
-                <button
-                  key={r.fullName}
-                  onClick={() => setSelected(r)}
-                  className={`w-full text-left px-3 py-2.5 rounded transition-colors ${
-                    selected?.fullName === r.fullName
-                      ? 'bg-brass-400/10 border border-brass-400/40'
-                      : 'border border-transparent hover:bg-surface-hover'
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-medium text-text truncate">{r.fullName}</span>
-                    {r.private && <FiLock size={11} className="text-text-faint shrink-0" />}
-                  </div>
-                  {r.description && (
-                    <p className="text-xs text-text-faint truncate mt-0.5">{r.description}</p>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex items-center justify-between px-5 py-4 border-t border-border">
-              <p className="text-xs text-text-faint">
-                {selected ? `Selected: ${selected.fullName}` : 'Pick a repository to import'}
-              </p>
-              <button
-                className="btn-primary"
-                disabled={!selected || startMutation.isPending}
-                onClick={() => startMutation.mutate()}
+          {isError && (
+            <div className="px-5 pb-3 shrink-0">
+              <ErrorState
+                error={reposFailure ?? 'Could not load your repositories.'}
+                action="Repositories"
+                onRetry={() => void refetch()}
+                retryLabel="Reload"
               >
-                {startMutation.isPending ? 'Starting…' : 'Import'}
-              </button>
+                <Link
+                  className="text-xs text-brass-400 hover:underline"
+                  to="/settings"
+                  onClick={onClose}
+                >
+                  Check GitHub connection
+                </Link>
+              </ErrorState>
             </div>
-          </>
-        )}
-      </div>
-    </div>
+          )}
+
+          {failed && (
+            <div className="px-5 pb-3 shrink-0">
+              <ErrorState
+                error={failed.error ?? 'The import stopped unexpectedly.'}
+                action="Import failed"
+                onRetry={() => {
+                  reset();
+                  void handleImport(selected);
+                }}
+                retryLabel={selected ? `Retry ${selected.fullName}` : 'Try again'}
+              />
+            </div>
+          )}
+
+          {error && !failed && (
+            <div className="px-5 pb-3 shrink-0">
+              <ErrorState
+                error={error}
+                action="The import could not be started"
+                onRetry={reset}
+                retryLabel="Back to the list"
+              />
+            </div>
+          )}
+
+          <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1 min-h-0">
+            {isLoading &&
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-14 rounded bg-surface-raised/60 animate-pulse mx-2" />
+              ))}
+
+            {!isLoading && filteredRepos.length === 0 && (
+              <p className="text-sm text-text-faint text-center py-8">
+                {search.trim()
+                  ? `No repositories match "${search}".`
+                  : 'No repositories to import.'}
+              </p>
+            )}
+
+            {filteredRepos.map((r) => (
+              <button
+                key={r.fullName}
+                type="button"
+                onClick={() => setSelected(r)}
+                onDoubleClick={() => handleImport(r)}
+                className={`w-full text-left px-3 py-2.5 rounded transition-colors ${
+                  selected?.fullName === r.fullName
+                    ? 'bg-brass-400/10 border border-brass-400/40'
+                    : 'border border-transparent hover:bg-surface-hover'
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-medium text-text truncate">{r.fullName}</span>
+                  {r.private && <FiLock size={11} className="text-text-faint shrink-0" />}
+                </div>
+                {r.description && (
+                  <p className="text-xs text-text-faint truncate mt-0.5">{r.description}</p>
+                )}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between px-5 py-4 border-t border-border shrink-0 gap-3">
+            <p className="text-xs text-text-faint truncate">
+              {selected ? `Selected: ${selected.fullName}` : 'Pick a repository to import'}
+            </p>
+            <button
+              className="btn-primary"
+              disabled={!selected || starting}
+              onClick={() => handleImport(selected)}
+            >
+              {starting ? 'Starting…' : 'Import'}
+            </button>
+          </div>
+        </>
+      )}
+    </ModalShell>
   );
 }
